@@ -1264,7 +1264,7 @@ const API = {
     return this.request('/api/fullscreen/exit', { method: 'POST' });
   },
   adminCulprit() {
-    return this.request('/api/admin/culprit');
+    return this.request('/api/admin/overview?culprit=1');
   },
   adminStartTimer() {
     return this.request('/api/admin/start-timer', { method: 'POST' });

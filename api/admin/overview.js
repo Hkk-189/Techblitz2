@@ -2,6 +2,7 @@
 // Admin Endpoint: Full State Snapshot for Admin Dashboard
 import { supabase, localStore } from '../_lib/db.js';
 import { requireAdmin } from '../_lib/auth.js';
+import { getCulprit } from '../_lib/answers.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -11,6 +12,11 @@ export default async function handler(req, res) {
   const auth = requireAdmin(req);
   if (!auth.ok) {
     return res.status(auth.status).json({ error: auth.error });
+  }
+
+  // Hobby plan caps functions at 12, so the culprit reveal lives here: GET ?culprit=1
+  if (req.query?.culprit || req.url?.includes('culprit=1')) {
+    return res.status(200).json({ culprit: getCulprit() });
   }
 
   let eventState = { is_started: false, server_start_time: null, total_duration_ms: 4200000 };
