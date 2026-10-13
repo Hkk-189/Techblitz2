@@ -88,3 +88,6 @@ BEGIN
     -- Table already in publication
   END;
 END $$;
+
+-- Force PostgREST to reload its schema cache immediately
+NOTIFY pgrst, 'reload schema';
