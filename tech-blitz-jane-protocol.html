@@ -717,6 +717,7 @@ const PORTRAITS = {
 /* =====================================================================
    MOCK CONTENT — edit everything here. No game rules live in this file.
    ===================================================================== */
+const IS_FILE = typeof location !== 'undefined' && location.protocol === 'file:';
 const DATA = {
   event: {
     title: 'TECH BLITZ',
@@ -752,7 +753,7 @@ const DATA = {
     { id:'lisbon', name:'Lisbon', line:'Runs the team. Signs off on the case.', portrait:'lisbon', away:"Lisbon is holding the scene until her team reports back." }
   ],
   // Case clock. Each case opens when the previous one's time ends (not when it's submitted).
-  timing: { readingMin:5, sectionMin:{ cho:15, rigsby:15, 'van-pelt':15, lisbon:20 }, closeOnTimeout:true },
+  timing: { readingMin:IS_FILE ? 5 : 0, sectionMin:{ cho:15, rigsby:15, 'van-pelt':15, lisbon:20 }, closeOnTimeout:true },
   consultant: { name:'Patrick Jane', role:'Consultant to the CBI. This is you.', portrait:'jane' },
   categories: ['Timeline record','Physical evidence','Technical analysis','Witness statement','Written message','Access log','Cross-reference'],
   evidence: [
@@ -1277,11 +1278,16 @@ const API = {
       method: 'POST',
       body: JSON.stringify({ request_id, register_number })
     });
+  },
+  adminRemoveUser(register_number) {
+    return this.request('/api/admin/remove-user', {
+      method: 'POST',
+      body: JSON.stringify({ register_number })
+    });
   }
 };
 
 /* ============ STATE ============ */
-const IS_FILE = typeof location !== 'undefined' && location.protocol === 'file:';
 const S = {
   user: IS_FILE ? { register_number: 'P-DEMO-001', role: 'participant' } : null,
   participant: IS_FILE ? 'P-DEMO-001' : '',
@@ -1559,23 +1565,176 @@ function crow(p, withDet=false){
 function detectivePage(id){
   const d = det(id); if(!d) return notFound();
   const list = chOf(id);
+  const partA = list[0];
+  const partB = list[1];
+  const isUnlocked = detUnlocked(id);
+  const w = win(id);
+  const nextDet = DATA.detectives[detIndex(id) + 1];
+
+  if(isUnlocked && partA && !S.opened[partA.id]) S.opened[partA.id] = now();
+  if(partA && S.subs[partA.id] && partB && !S.opened[partB.id]) S.opened[partB.id] = now();
+
+  const bothDone = list.every(p => S.subs[p.id]);
+
+  let contentHtml = '';
+  if(!isUnlocked){
+    contentHtml = `
+      ${fieldCard(d, 'big')}
+      <div class="actions" style="margin-top:1.5rem;"><a class="btn btn-ghost" href="#/investigation">&larr; Back to Investigation Roster</a></div>
+    `;
+  } else {
+    contentHtml = `
+      <div style="margin-top:2rem;">
+        <!-- Part A Question Desk -->
+        <article class="admin-card" id="card-${partA.id}" style="padding:2.2rem;background:var(--charcoal);border:1px solid var(--line);margin-bottom:2rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.2rem;">
+            <div>
+              <span class="mono muted">SECTION 01 // ${esc(partA.case)}</span>
+              <h2 class="display" style="font-size:2.4rem;margin:.2rem 0;">${partA.title}</h2>
+            </div>
+            <div>${statusChip(pstatus(partA))}</div>
+          </div>
+          ${partA.narrative_intro ? `<blockquote class="story" style="margin-bottom:1.5rem;">${esc(partA.narrative_intro)}</blockquote>` : ''}
+          <div class="prompt" style="margin-bottom:1.5rem;">${promptHTML(partA)}</div>
+          <h3 class="q-label mono muted" style="margin-bottom:.4rem;">Question</h3>
+          <p class="question" style="font-size:1.25rem;font-weight:600;margin-bottom:1.5rem;">${esc(partA.prompt.question)}</p>
+          ${S.subs[partA.id] ? receipt(partA, S.subs[partA.id], true) : answerForm(partA, true)}
+          ${hintPanel(partA, S.subs[partA.id], true)}
+        </article>
+
+        <!-- Part B Question Desk -->
+        ${partB ? `
+          ${!S.subs[partA.id] ? `
+            <div class="admin-card" style="padding:2.2rem;border:1px dashed var(--line);background:rgba(255,255,255,0.02);margin-bottom:2rem;">
+              <div class="mono muted">SECTION 02 // ${esc(partB.case)}</div>
+              <h3 class="display" style="font-size:2rem;margin:.5rem 0 .6rem;">${partB.title} (Locked)</h3>
+              <p class="muted" style="margin:0;">Submit your answer to ${partA.title} above. Part B questions will immediately unlock right here on this screen.</p>
+            </div>
+          ` : `
+            <article class="admin-card" id="card-${partB.id}" style="padding:2.2rem;background:var(--charcoal);border:1px solid var(--line);margin-bottom:2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.2rem;">
+                <div>
+                  <span class="mono muted">SECTION 02 // ${esc(partB.case)}</span>
+                  <h2 class="display" style="font-size:2.4rem;margin:.2rem 0;">${partB.title}</h2>
+                </div>
+                <div>${statusChip(pstatus(partB))}</div>
+              </div>
+              ${partB.narrative_intro ? `<blockquote class="story" style="margin-bottom:1.5rem;">${esc(partB.narrative_intro)}</blockquote>` : ''}
+              <div class="prompt" style="margin-bottom:1.5rem;">${promptHTML(partB)}</div>
+              <h3 class="q-label mono muted" style="margin-bottom:.4rem;">Question</h3>
+              <p class="question" style="font-size:1.25rem;font-weight:600;margin-bottom:1.5rem;">${esc(partB.prompt.question)}</p>
+              ${S.subs[partB.id] ? receipt(partB, S.subs[partB.id], true) : answerForm(partB, true)}
+              ${hintPanel(partB, S.subs[partB.id], true)}
+            </article>
+          `}
+        ` : ''}
+
+        <!-- Completion & Sequential Time Lock Banner -->
+        ${bothDone ? `
+          <div class="admin-card" style="padding:2.2rem;background:rgba(59,109,79,.12);border:1px solid var(--green);margin-top:2rem;">
+            <div class="mono" style="color:var(--green-ink);font-weight:600;">AGENT ${d.name.toUpperCase()} // INQUIRY COMPLETED</div>
+            <h3 class="display" style="font-size:2.2rem;margin:.4rem 0 .8rem;">All answers filed for ${d.name}.</h3>
+            <p style="color:var(--paper);line-height:1.6;font-size:1.05rem;">
+              ${nextDet ? `You must now wait until ${d.name}'s designated timer window runs out before ${nextDet.name} unlocks.<br>Next agent (<strong style="color:var(--amber);">${nextDet.name}</strong>) unlocks in: <strong class="mono" style="font-size:1.2rem;color:var(--amber);">${until(win(nextDet.id).open)}</strong>` : 'All four field investigations are closed! You can now proceed to the Final Deduction.'}
+            </p>
+            <div class="actions" style="margin-top:1.5rem;">
+              ${nextDet ? `<a class="btn btn-ghost" href="#/investigation">&larr; Return to Investigation Roster</a>` : `<a class="btn btn-red" href="#/final-deduction">Proceed to Final Deduction &rarr;</a>`}
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
   return shell('det-'+id, `
   <div class="crumbs mono"><a href="#/investigation">Investigation</a> / ${d.name}</div>
   <div class="det-hero">
-    <div class="monogram halftone ${detUnlocked(id)?'':'away'}"><span aria-hidden="true">${d.name[0]}</span>${portrait(d.portrait,'port',(PORTRAITS[d.portrait]||{}).name||'')}</div>
-    <div><h1 class="display" style="font-size:clamp(4rem,10vw,8rem)">${d.name}</h1>
-      <p style="color:#C9C7C1;font-size:1.1rem;margin-top:.6rem">${d.line}</p>
-      ${list[0] ? `<p class="mono muted" style="margin:0">${esc(list[0].case)}</p>` : ''}</div>
+    <div class="monogram halftone ${isUnlocked ? '' : 'away'}"><span aria-hidden="true">${d.name[0]}</span>${portrait(d.portrait,'port',(PORTRAITS[d.portrait]||{}).name||'')}</div>
+    <div>
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+        <h1 class="display" style="font-size:clamp(3.6rem,8vw,7rem);margin:0;">${d.name}</h1>
+        ${isUnlocked && w ? `<span class="badge badge-active mono" style="font-size:.85rem;">Closes in ${until(w.close)}</span>` : ''}
+      </div>
+      <p style="color:#C9C7C1;font-size:1.1rem;margin-top:.6rem;">${d.line}</p>
+      ${list[0] ? `<p class="mono muted" style="margin:0">${esc(list[0].case)}</p>` : ''}
+    </div>
   </div>
-  ${detUnlocked(id) ? '' : fieldCard(d, 'big')}
-  <div class="slot-list" ${detUnlocked(id) ? '' : 'hidden'}>
-    ${list.map(p => { const s = pstatus(p); return `
-    <article class="slot"><span class="big" aria-hidden="true">${pad(idx(p))}</span>
-      <div><h3>${p.title}</h3><div class="meta"><span>Puzzle ${idx(p)} of ${PUZZLES.length}</span><span>${topicOf(p)}</span>${statusChip(s)}</div></div>
-      ${s==='locked' ? `<span class="btn btn-ghost" aria-disabled="true" style="opacity:.5;cursor:not-allowed">Opens after Part A</span>`
-                     : `<a class="btn" href="#/challenge/${p.id}">${s==='submitted' ? 'View answer' : 'Open puzzle'}</a>`}
-    </article>`; }).join('')}
-  </div>`);
+  ${contentHtml}
+  `);
+}
+
+function bindDetectivePage(id){
+  const list = chOf(id);
+  list.forEach(p => {
+    if(S.subs[p.id]) return;
+    const f = fmtOf(p);
+    const clearErr = () => {
+      if(S.err === p.id){
+        S.err = null;
+        $(`#ans-${p.id}`)?.removeAttribute('aria-invalid');
+        $(`#ans-err-${p.id}`)?.remove();
+      }
+    };
+
+    if(f.kind === 'time'){
+      const t = S.pendingTime[p.id] = S.pendingTime[p.id] || { h:'', m:'' };
+      $(`#ans-${p.id}`)?.addEventListener('input', e => {
+        t.h = e.target.value;
+        clearErr();
+        if(t.h.length === 2) $(`#ans-${p.id}-m`)?.focus();
+      });
+      $(`#ans-${p.id}-m`)?.addEventListener('input', e => {
+        t.m = e.target.value;
+        clearErr();
+      });
+      document.querySelectorAll(`#ans-${p.id}, #ans-${p.id}-m`).forEach(i => i.addEventListener('keydown', e => {
+        if(e.key === 'Enter'){ e.preventDefault(); $(`#submit-${p.id}`)?.click(); }
+      }));
+    } else if(f.kind === 'choice'){
+      document.querySelectorAll(`input[name="choice-${p.id}"]`).forEach(r => {
+        r.addEventListener('change', e => {
+          S.pending[p.id] = e.target.value;
+          clearErr();
+        });
+      });
+    } else {
+      const ans = $(`#ans-${p.id}:not([readonly])`);
+      ans?.addEventListener('input', e => {
+        S.pending[p.id] = e.target.value;
+        clearErr();
+      });
+      ans?.addEventListener('keydown', e => {
+        if(e.key === 'Enter'){ e.preventDefault(); $(`#submit-${p.id}`)?.click(); }
+      });
+    }
+
+    $(`#submit-${p.id}`)?.addEventListener('click', e => {
+      let value;
+      if(f.kind === 'time'){
+        const t = S.pendingTime[p.id] || { h:'', m:'' };
+        if(!t.h.trim() || !t.m.trim()){
+          S.err = p.id;
+          render();
+          $(`#ans-${p.id}`)?.focus();
+          return;
+        }
+        value = `${t.h}:${t.m}`;
+      } else {
+        value = S.pending[p.id] || '';
+        if(!value.trim()){
+          S.err = p.id;
+          render();
+          $(`#ans-${p.id}`)?.focus();
+          return;
+        }
+      }
+      confirmSubmit(p, value, e.currentTarget);
+    });
+
+    $(`#hint-${p.id}`)?.addEventListener('click', e => {
+      confirmHint(p, e.currentTarget);
+    });
+  });
 }
 
 /* ============ CHALLENGE WORKSPACE ============ */
@@ -1609,45 +1768,49 @@ function promptHTML(p){
   const inline = new Set(p.prompt.body.filter(b => b.type==='asset').map(b => b.id));
   return p.prompt.body.map(b => block(b, p)).join('') + p.assets.filter(a => !inline.has(a.id)).map(asset).join('');
 }
-function answerForm(p){
+function answerForm(p, isDesk = false){
   const f = fmtOf(p), err = S.err === p.id, sending = S.sending === p.id, dis = sending ? 'disabled' : '';
-  const desc = `ans-help${err ? ' ans-err' : ''}`;
+  const inputId = isDesk ? `ans-${p.id}` : 'ans';
+  const submitId = isDesk ? `submit-${p.id}` : 'submit';
+  const desc = isDesk ? `ans-help-${p.id}${err ? ` ans-err-${p.id}` : ''}` : `ans-help${err ? ' ans-err' : ''}`;
   let control;
   if(f.kind === 'time'){
     const t = S.pendingTime[p.id] || { h:'', m:'' };
     control = `<fieldset class="time-in" aria-describedby="${desc}"><legend class="sr-only">Time: hours and minutes</legend>
-      <input id="ans" class="input tbox" inputmode="numeric" maxlength="2" placeholder="hh" aria-label="Hours" value="${esc(t.h)}" ${dis} ${err?'aria-invalid="true"':''}>
+      <input id="${inputId}" data-pid="${p.id}" class="input tbox" inputmode="numeric" maxlength="2" placeholder="hh" aria-label="Hours" value="${esc(t.h)}" ${dis} ${err?'aria-invalid="true"':''}>
       <span class="colon" aria-hidden="true">:</span>
-      <input id="ans-m" class="input tbox" inputmode="numeric" maxlength="2" placeholder="mm" aria-label="Minutes" value="${esc(t.m)}" ${dis}>
+      <input id="${inputId}-m" data-pid="${p.id}" class="input tbox" inputmode="numeric" maxlength="2" placeholder="mm" aria-label="Minutes" value="${esc(t.m)}" ${dis}>
     </fieldset>`;
   } else if(f.kind === 'choice'){
     control = `<fieldset class="choice" aria-describedby="${desc}"><legend class="sr-only">${esc(p.prompt.question)}</legend>
-      ${f.options.map((o,i) => `<label><input type="radio" name="choice" value="${esc(o)}" ${i===0?'id="ans"':''} ${S.pending[p.id]===o?'checked':''} ${dis}><span>${esc(o)}</span></label>`).join('')}
+      ${f.options.map((o,i) => `<label><input type="radio" name="choice-${p.id}" data-pid="${p.id}" value="${esc(o)}" ${i===0?`id="${inputId}"`:''} ${S.pending[p.id]===o?'checked':''} ${dis}><span>${esc(o)}</span></label>`).join('')}
     </fieldset>`;
   } else {
-    const a = `id="ans" class="input" autocomplete="off" autocapitalize="off" spellcheck="false" ${f.kind==='number'?'inputmode="numeric"':''} placeholder="${esc(f.placeholder||'')}" value="${esc(S.pending[p.id]||'')}" ${dis} aria-describedby="${desc}" ${err?'aria-invalid="true"':''}`;
+    const a = `id="${inputId}" data-pid="${p.id}" class="input" autocomplete="off" autocapitalize="off" spellcheck="false" ${f.kind==='number'?'inputmode="numeric"':''} placeholder="${esc(f.placeholder||'')}" value="${esc(S.pending[p.id]||'')}" ${dis} aria-describedby="${desc}" ${err?'aria-invalid="true"':''}`;
     if(f.prefix) control = `<div class="affix term"><span class="pre">${esc(f.prefix)}</span><input ${a}></div>`;
     else if(f.suffix) control = `<div class="affix"><input ${a}><span class="suf">${esc(f.suffix)}</span></div>`;
     else control = `<input ${a}>`;
   }
   const errMsg = f.kind === 'time' ? 'Fill in both the hours and the minutes.' : f.kind === 'choice' ? 'Pick one before submitting.' : 'Type an answer before submitting.';
-  return `<div class="field">
+  return `<div class="field" style="margin-top:1.2rem;">
     <div class="fmt"><span class="fmt-k mono">Expected format</span><span class="fmt-v">${esc(f.label)}</span></div>
-    ${f.kind === 'time' || f.kind === 'choice' ? '<span class="lbl">Your answer</span>' : '<label for="ans">Your answer</label>'}
+    ${f.kind === 'time' || f.kind === 'choice' ? '<span class="lbl">Your answer</span>' : `<label for="${inputId}">Your answer</label>`}
     ${control}
-    <div class="help" id="ans-help">${esc(f.help)}${f.kind === 'text' ? " Capitals don't matter." : ''} Answers lock when you submit.</div>
-    ${err ? `<div class="err" id="ans-err">${errMsg}</div>` : ''}
+    <div class="help" id="${isDesk ? `ans-help-${p.id}` : 'ans-help'}">${esc(f.help)}${f.kind === 'text' ? " Capitals don't matter." : ''} Answers lock when you submit.</div>
+    ${err ? `<div class="err" id="${isDesk ? `ans-err-${p.id}` : 'ans-err'}">${errMsg}</div>` : ''}
   </div>
-  <div class="actions"><button class="btn btn-red" id="submit" ${dis}>${sending ? '<span class="spinner" aria-hidden="true"></span>Recording' : (p.kind === 'verdict' ? 'Submit verdict' : 'Submit answer')}</button></div>`;
+  <div class="actions" style="margin-top:1.2rem;"><button class="btn btn-red" id="${submitId}" data-pid="${p.id}" ${dis}>${sending ? '<span class="spinner" aria-hidden="true"></span>Recording' : (p.kind === 'verdict' ? 'Submit verdict' : 'Submit answer')}</button></div>`;
 }
-function receipt(p, sub){
+function receipt(p, sub, isDesk = false){
   const next = PUZZLES.find(x => x.requires === p.id);
-  return `<div class="field"><label for="ans">Your answer</label>
-    <input id="ans" class="input locked-in" value="${esc(sub.answer)}" readonly aria-describedby="rcpt"></div>
-    <div class="receipt" id="rcpt" role="status" tabindex="-1"><span class="lock">LOCKED</span>
+  const inputId = isDesk ? `ans-${p.id}` : 'ans';
+  const rcptId = isDesk ? `rcpt-${p.id}` : 'rcpt';
+  return `<div class="field"><label for="${inputId}">Your answer</label>
+    <input id="${inputId}" class="input locked-in" value="${esc(sub.answer)}" readonly aria-describedby="${rcptId}"></div>
+    <div class="receipt" id="${rcptId}" role="status" tabindex="-1"><span class="lock">LOCKED</span>
       <div><strong>${p.kind === 'verdict' ? 'Verdict recorded.' : 'Answer recorded.'}</strong> <span class="mono">${clock(sub.recorded_at)}</span><p>This answer is locked and can't be changed.</p></div></div>
     ${p.handoff ? `<blockquote class="story handoff"><span class="mono muted">Handoff</span>${esc(p.handoff)}</blockquote>` : ''}
-    ${nextAction(p, next)}`;
+    ${isDesk ? '' : nextAction(p, next)}`;
 }
 function nextAction(p, next){
   const act = h => `<div class="actions">${h}</div>`;
@@ -1660,15 +1823,16 @@ function nextAction(p, next){
   }
   return act(`<a class="btn btn-ghost" href="#/investigation">Back to the investigation</a>`);
 }
-function hintPanel(p, sub){
+function hintPanel(p, sub, isDesk = false){
   if(!p.hint_available) return '';
   const h = S.hints[p.id];
+  const hintId = isDesk ? `hint-${p.id}` : 'hint';
   if(h) return `<div class="hintbox"><h3>Hint requested</h3><p>Logged at <span class="mono">${clock(h.recorded_at)}</span> with a 60-second penalty. In the live event the hint text appears here, sent by the server.</p></div>`;
   if(sub) return '';
   const at = S.opened[p.id] + HINT_DELAY_MS, ready = now() >= at;
   const when = new Date(at).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
   return `<div class="hintbox"><h3>Hint</h3><p>One hint for this part. ${ready ? '' : `Available from ${when}. `}Using it adds 60 seconds to your time.</p>
-    <button class="btn btn-ghost" id="hint" ${ready ? '' : 'disabled'}>Request hint</button></div>`;
+    <button class="btn btn-ghost" id="${hintId}" data-pid="${p.id}" ${ready ? '' : 'disabled'}>Request hint</button></div>`;
 }
 function workspace(id){
   const p = PUZZLES.find(x => x.id === id); if(!p) return notFound();
@@ -2032,6 +2196,7 @@ function bindLogin(){
   if(!form) return;
   form.addEventListener('submit', async e => {
     e.preventDefault();
+    requestAppFullscreen();
     const btn = $('#login-submit-btn');
     const input = $('#reg-num');
     const val = (input?.value || '').trim();
@@ -2052,6 +2217,8 @@ function bindLogin(){
       localStorage.setItem('tb_token', data.token);
       await initSession();
       if(S.user.role === 'admin'){
+        const ov = await API.adminOverview().catch(() => null);
+        if(ov) S.adminOverview = ov;
         location.hash = '#/admin';
       } else {
         location.hash = '#/';
@@ -2155,9 +2322,19 @@ function renderAdminControl(es, roster = []){
     <div class="mono muted">ACTIVE ROSTER SUMMARY (${roster.length} TOTAL)</div>
     <div style="max-height:300px;overflow-y:auto;margin-top:.8rem;">
       <table class="admin-table">
-        <thead><tr><th>REGISTER NUMBER</th><th>ROLE</th><th>REGISTERED AT</th></tr></thead>
+        <thead><tr><th>REGISTER NUMBER</th><th>ROLE</th><th>REGISTERED AT</th><th>ACTION</th></tr></thead>
         <tbody>
-          ${roster.map(u => `<tr><td><strong>${esc(u.register_number)}</strong></td><td><span class="badge ${u.role==='admin'?'badge-active':'badge-active'}">${esc(u.role)}</span></td><td>${clock(u.created_at)}</td></tr>`).join('')}
+          ${!roster.length ? `<tr><td colspan="4" style="text-align:center;padding:1.5rem;" class="muted">No users in roster.</td></tr>` : ''}
+          ${roster.map(u => `<tr>
+            <td><strong>${esc(u.register_number)}</strong></td>
+            <td><span class="badge ${u.role==='admin'?'badge-active':'badge-active'}">${esc(u.role)}</span></td>
+            <td>${clock(u.created_at)}</td>
+            <td>
+              ${u.role !== 'admin' ? `
+                <button type="button" class="btn btn-ghost btn-remove-user" data-reg="${esc(u.register_number)}" style="min-height:28px;padding:.2rem .6rem;font-size:.72rem;color:var(--red);border-color:var(--red);">REMOVE</button>
+              ` : '<span class="muted mono" style="font-size:.75rem;">PROTECTED</span>'}
+            </td>
+          </tr>`).join('')}
         </tbody>
       </table>
     </div>
@@ -2300,6 +2477,25 @@ function bindAdmin(){
     }
   });
 
+  document.querySelectorAll('.btn-remove-user').forEach(b => {
+    b.addEventListener('click', async e => {
+      const reg = e.target.dataset.reg;
+      if(!confirm(`Are you sure you want to remove participant ${reg} from the registered database?`)) return;
+      e.target.disabled = true;
+      e.target.textContent = 'REMOVING...';
+      try {
+        await API.adminRemoveUser(reg);
+        const ov = await API.adminOverview().catch(() => null);
+        if(ov) S.adminOverview = ov;
+        render();
+      } catch(err) {
+        alert('Error removing student: ' + err.message);
+        e.target.disabled = false;
+        e.target.textContent = 'REMOVE';
+      }
+    });
+  });
+
   document.querySelectorAll('.btn-unblock-req').forEach(b => {
     b.addEventListener('click', async e => {
       const reqId = e.target.dataset.reqId;
@@ -2321,6 +2517,25 @@ function bindAdmin(){
 }
 
 /* ============ FULLSCREEN & TIMER SYNC ============ */
+function requestAppFullscreen(){
+  const el = document.documentElement;
+  const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+  if(fn){
+    try {
+      const p = fn.call(el);
+      if(p && p.catch) p.catch(() => {});
+    } catch {
+      // Ignore gesture errors
+    }
+  }
+}
+
+document.addEventListener('click', () => {
+  if(S.user?.role === 'participant' && S.eventStarted && !S.isBlocked && !document.fullscreenElement){
+    requestAppFullscreen();
+  }
+}, true);
+
 function setBlockedState(blocked, canReenter = false){
   S.isBlocked = blocked;
   const el = $('#fs-blocker');
@@ -2366,17 +2581,13 @@ document.addEventListener('visibilitychange', () => {
 $('#fs-start-btn')?.addEventListener('click', () => {
   const modal = $('#fs-entry');
   if(modal) modal.hidden = true;
-  if(document.documentElement.requestFullscreen){
-    document.documentElement.requestFullscreen().catch(() => {});
-  }
+  requestAppFullscreen();
 });
 
 $('#fs-reenter-btn')?.addEventListener('click', () => {
   S.unblocking = true;
   setBlockedState(false);
-  if(document.documentElement.requestFullscreen){
-    document.documentElement.requestFullscreen().catch(() => {});
-  }
+  requestAppFullscreen();
   setTimeout(() => { S.unblocking = false; }, 1000);
 });
 
@@ -2388,6 +2599,7 @@ function handleTimerStarted(serverStartTimeStr){
   if(S.user?.role === 'participant'){
     const modal = $('#fs-entry');
     if(modal) modal.hidden = false;
+    requestAppFullscreen();
   }
   render();
 }
@@ -2436,10 +2648,17 @@ async function initSession(){
       if(data.accusation){
         S.accusation = data.accusation;
       }
-      if(data.event_state && data.event_state.is_started){
+      if(data.role === 'admin'){
+        const ov = await API.adminOverview().catch(() => null);
+        if(ov) S.adminOverview = ov;
+      } else if(data.event_state && data.event_state.is_started){
         S.eventStarted = true;
         S.serverStartTime = new Date(data.event_state.server_start_time).getTime();
         S.t0 = S.serverStartTime;
+        if(!document.fullscreenElement && !data.is_blocked){
+          const modal = $('#fs-entry');
+          if(modal) modal.hidden = false;
+        }
       }
     } else {
       localStorage.removeItem('tb_token');
@@ -2511,11 +2730,14 @@ function render(){
       return;
     }
     const app = $('#app');
-    if(app.dataset.route !== '/admin'){
-      app.innerHTML = adminView();
-      app.dataset.route = '/admin';
-      bindAdmin();
-      document.title = 'TECH BLITZ | Admin Console';
+    app.innerHTML = adminView();
+    app.dataset.route = '/admin';
+    bindAdmin();
+    document.title = 'TECH BLITZ | Admin Console';
+    if(!S.adminOverview){
+      API.adminOverview().then(ov => {
+        if(ov){ S.adminOverview = ov; render(); }
+      }).catch(() => {});
     }
     lastPhase = phaseKey();
     return;
@@ -2534,7 +2756,7 @@ function render(){
   if(!parts.length) view = landing();
   else if(parts[0]==='briefing') view = briefing();
   else if(parts[0]==='suspects') view = suspectsPage();
-  else if(parts[0]==='investigation' && parts[1]) view = detectivePage(parts[1]);
+  else if(parts[0]==='investigation' && parts[1]) { view = detectivePage(parts[1]); bind = () => bindDetectivePage(parts[1]); }
   else if(parts[0]==='investigation') view = dashboard();
   else if(parts[0]==='challenge') { view = workspace(parts[1]); bind = () => bindWorkspace(parts[1]); }
   else if(parts[0]==='evidence') { view = evidence(); bind = bindEvidence; }
