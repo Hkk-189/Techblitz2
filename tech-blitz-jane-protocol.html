@@ -2039,6 +2039,8 @@ function bindLogin(){
     btn.disabled = true;
     btn.innerHTML = 'VERIFYING... <span class="spinner"></span>';
     S.loginErr = null;
+    const oldErr = form.querySelector('.err');
+    if(oldErr) oldErr.remove();
     try {
       const data = await API.login(val);
       S.user = {
@@ -2056,8 +2058,14 @@ function bindLogin(){
       }
       render();
     } catch(err) {
+      btn.disabled = false;
+      btn.textContent = 'AUTHORIZE TERMINAL';
       S.loginErr = err.message || 'Authentication failed. Please check your register number.';
-      render();
+      const errDiv = document.createElement('div');
+      errDiv.className = 'err mono';
+      errDiv.style.marginTop = '.5rem';
+      errDiv.textContent = S.loginErr;
+      input.parentElement.appendChild(errDiv);
     }
   });
 }
@@ -2486,10 +2494,13 @@ function render(){
   // 1. Enforce authentication: if not logged in (or explicitly on #/login), render single login view
   if((!S.user || parts[0] === 'login') && (!IS_FILE || parts[0] === 'login')){
     const app = $('#app');
-    app.innerHTML = loginView();
-    app.dataset.route = '/login';
-    bindLogin();
-    document.title = 'TECH BLITZ | Terminal Authorization';
+    if(app.dataset.route !== '/login'){
+      app.innerHTML = loginView();
+      app.dataset.route = '/login';
+      bindLogin();
+      document.title = 'TECH BLITZ | Terminal Authorization';
+    }
+    lastPhase = phaseKey();
     return;
   }
 
@@ -2500,10 +2511,13 @@ function render(){
       return;
     }
     const app = $('#app');
-    app.innerHTML = adminView();
-    app.dataset.route = '/admin';
-    bindAdmin();
-    document.title = 'TECH BLITZ | Admin Console';
+    if(app.dataset.route !== '/admin'){
+      app.innerHTML = adminView();
+      app.dataset.route = '/admin';
+      bindAdmin();
+      document.title = 'TECH BLITZ | Admin Console';
+    }
+    lastPhase = phaseKey();
     return;
   }
 
