@@ -1,0 +1,8 @@
+{
+  "root": true,
+  "plugins": ["html"],
+  "env": { "browser": true, "es2022": true },
+  "parserOptions": { "ecmaVersion": 2022, "sourceType": "script" },
+  "extends": "eslint:recommended",
+  "rules": { "no-unused-vars": ["warn", { "vars": "all", "args": "none" }] }
+}

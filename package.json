@@ -1,0 +1,30 @@
+{
+  "name": "tech-blitz-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TECH BLITZ: The Jane Protocol — frontend prototype (single-file HTML, no build step).",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node qa/serve.mjs",
+    "lint": "eslint --no-eslintrc -c .eslintrc.json tech-blitz-jane-protocol.html",
+    "validate": "html-validate tech-blitz-jane-protocol.html",
+    "test:install": "playwright install chromium",
+    "test:api": "node qa/test-api.mjs",
+    "test:e2e": "node qa/test-e2e.mjs",
+    "test": "node qa/smoke.test.mjs",
+    "check": "npm run lint && npm run validate && npm run test:api && npm run test:e2e"
+  },
+  "devDependencies": {
+    "axe-core": "4.14.0",
+    "eslint": "8.57.1",
+    "eslint-plugin-html": "8.1.3",
+    "html-validate": "8.29.0",
+    "playwright": "1.56.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.3"
+  }
+}

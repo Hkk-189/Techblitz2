@@ -1,0 +1,117 @@
+{
+  "source": "Final_Set_of_Questions.pdf (Question Set D, Oct 13, 2026)",
+  "WARNING": "SERVER ONLY. Never serve, import into client code, or commit to a public repo.",
+  "answers": [
+    {
+      "puzzle_id": "cho-a",
+      "accepted_answers": [
+        "9:43",
+        "9.43",
+        "943",
+        "9:43 PM",
+        "9:43PM",
+        "21:43"
+      ],
+      "accepted_answers_source": "PDF \"Accepted answers\" line",
+      "scoring_weight": null,
+      "hint": "A slow clock shows less than the real time. A fast clock shows more. Both clocks should give the same real time."
+    },
+    {
+      "puzzle_id": "cho-b",
+      "accepted_answers": [
+        "WORKSHOP",
+        "WORKSHOP KEY",
+        "THE WORKSHOP KEY"
+      ],
+      "accepted_answers_source": "PDF \"Accepted answers\" line",
+      "scoring_weight": null,
+      "hint": "Work out the envelope labelled WORKSHOP first. It can't hold what its label says, and the spa key is already taken."
+    },
+    {
+      "puzzle_id": "rigsby-a",
+      "accepted_answers": [
+        "RADIO ROOM",
+        "THE RADIO ROOM",
+        "RADIOROOM"
+      ],
+      "accepted_answers_source": "PDF \"Accepted answers\" line",
+      "scoring_weight": null,
+      "hint": "777 means key 7 tapped three times, so the third letter on key 7."
+    },
+    {
+      "puzzle_id": "rigsby-b",
+      "accepted_answers": [
+        "TILL TEN",
+        "TILLTEN",
+        "TILL 10"
+      ],
+      "accepted_answers_source": "PDF \"Accepted answers\" line",
+      "scoring_weight": null,
+      "hint": "45 means row 4, column 5."
+    },
+    {
+      "puzzle_id": "van-pelt-a",
+      "accepted_answers": [
+        "NONSTOP",
+        "NON STOP",
+        "NON-STOP"
+      ],
+      "accepted_answers_source": "PDF \"Accepted answers\" line",
+      "scoring_weight": null,
+      "hint": "Each group is line–word–letter. 2-1-1 means line 2, word 1, letter 1."
+    },
+    {
+      "puzzle_id": "van-pelt-b",
+      "accepted_answers": [
+        "ICE RINK",
+        "THE ICE RINK",
+        "RINK"
+      ],
+      "accepted_answers_source": "PDF \"Accepted answers\" line",
+      "scoring_weight": null,
+      "hint": "Write each reading as a sum of powers of two (1, 2, 4, 8, 16, 32, 64, 128). Each power is one zone."
+    },
+    {
+      "puzzle_id": "lisbon-a",
+      "accepted_answers": [
+        "5",
+        "MINE=5",
+        "MINE = 5"
+      ],
+      "accepted_answers_source": "PDF \"Accepted answers\" line",
+      "scoring_weight": null,
+      "hint": "strcmp returns 0 when the two strings are the same."
+    },
+    {
+      "puzzle_id": "lisbon-b",
+      "accepted_answers": [
+        "4",
+        "GONE=4",
+        "GONE = 4"
+      ],
+      "accepted_answers_source": "PDF \"Accepted answers\" line",
+      "scoring_weight": null,
+      "hint": "943 / 100 is 9 in integer division, and 943 % 100 is 43."
+    }
+  ],
+  "normalization": {
+    "case_insensitive": true,
+    "_decided_by": "organizers (Harshi, frontend owner)",
+    "applies_on": "server only, before comparing to accepted_answers",
+    "proposed_further_rules_awaiting_signoff": [
+      "trim leading/trailing whitespace",
+      "collapse repeated internal spaces",
+      "cho-a arrives as \"H:MM\" from the time boxes; \"9:43\" is already in the accepted list"
+    ]
+  },
+  "accusation": {
+    "correct": "Dr. Sam Whitley",
+    "source": "Organizer notes p.1 and results walkthrough p.7"
+  },
+  "reveal": {
+    "instruction_verbatim": "Use the same reveal monologue as Question Set v2.",
+    "status": "MISSING: Question Set v2 was never shared. The Set 1 monologue is not assumed to be identical."
+  },
+  "organizer_notes_verbatim": "Organizer notes (do not show participants) Killer: Dr. Sam Whitley. Correct answers show the other four alibis hold. Alibis in this set: Owen in the maintenance workshop, Ingrid in the radio room, Mateo on the outdoor ice rink, Lena at the library PC. Puzzle types: fast and slow clocks; mislabelled envelopes; a phone-keypad cipher; a keyed grid cipher (key word RESCUE); a sign code (line–word–letter); motion sensors stored as bits; strcmp ; a function using / and % . Section balance: Van Pelt's Part A is now a cipher (the rink sign code), so his section tests number systems only in Part B. Rigsby's section is all ciphers, as before. Traps that point the wrong way: Cho B: trusting the envelope label gives \"spa key\", which makes Owen look guilty. Rigsby B: decoding with the standard A–Z square (or a decoder website) gives UMOOUBQ, not the message. Lisbon A: thinking strcmp returns 1 on a match gives 1 instead of 5, which makes Lena look absent most of the time. Plant: Van Pelt's 9:48 reading (40) includes the spa-corridor sensor. Someone was there, but not Mateo. Verified: both clocks agree on 9:43; the envelope puzzle has exactly one solution; the keypad and grid ciphers and the sign code were encoded and decoded by script; the sensor readings were converted; both C programs were compiled and run, with the hidden variables printed to confirm 5 and 4.",
+  "results_walkthrough_verbatim": "Results walkthrough (organizers only, shown on the projector at 13:00) Cho — Owen. A: the phone is 4 minutes slow, so 9:39 + 4 = 9:43. The wall clock is 6 minutes fast, so 9:49 − 6 = 9:43. Both agree: 9:43, right in the middle of the window, in a workshop 7 minutes from the spa. B: the SPA + WORKSHOP envelope holds only the spa key. The WORKSHOP envelope can't hold the workshop key, so it holds both keys. That leaves the SPA envelope holding the workshop key. Owen never had the spa key, so he couldn't get into the spa wing. Owen's alibi holds. Rigsby — Ingrid. A: 777 = R, 2 = A, 3 = D, 444 = I, 666 = O, then 777 = R, 666 = O, 666 = O, 6 = M, so RADIO ROOM. B: with the RESCUE square, 45 = T, 32 = I, 34 = L, 34 = L, 45 = T, 12 = E, 41 = N, so TILL TEN. (The standard A–Z square gives UMOOUBQ, which is the trap.) She was on the rescue radio until 10. Ingrid's alibi holds. Van Pelt — Mateo. A: No → N, onto → O, evening → N (4th letter), Skates → S, tight → T, office → O, past → P, so NONSTOP. The coach watched him skate without a break. B: 33 = 32 + 1, 36 = 32 + 4 and 40 = 32 + 8. Bit 5 (32) appears in all three, so the ice rink was in use the whole window. (40 also includes 8, the spa corridor, at 9:48. Someone was there, but not Mateo.) Mateo's alibi holds. Lisbon — Lena. A: strcmp returns 0 on a match, so five of the six logins count: mine is 5. Only the 9:44 sample was a guest. B: 947 becomes 9 × 60 + 47 = 587 and 943 becomes 583, so gone is 4. She stepped out for 4 minutes, nowhere near the 10 needed. Lena's alibi holds. The killer: four alibis hold, so it's Dr. Sam Whitley. Use the same reveal monologue as Question Set v2."
+}

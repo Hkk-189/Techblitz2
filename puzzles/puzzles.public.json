@@ -1,0 +1,389 @@
+{
+  "source": "Final_Set_of_Questions.pdf (Question Set D, Oct 13, 2026)",
+  "format_verbatim": null,
+  "note": "Participant-safe fields only. Serve each entry from the server once it unlocks. lisbon-b's intro reveals lisbon-a's result, so never ship this file as one static bundle.",
+  "puzzles": [
+    {
+      "id": "cho-a",
+      "case": "Case 1: Cho (Logic)",
+      "title": "Part A",
+      "kind": "puzzle",
+      "narrative_intro": "Cho: \"The maintenance guy says he was fixing a heater in the workshop. He even photographed it for his report. Problem is, nobody's clock in this lodge tells the right time.\"",
+      "prompt": {
+        "body": [
+          {
+            "type": "paragraph",
+            "text": "Evidence: The maintenance workshop is behind the staff block, a 7-minute walk from the spa."
+          },
+          {
+            "type": "lines",
+            "lines": [
+              "Owen's photo of the heater has a timestamp from his phone: 9:39.",
+              "His phone is 4 minutes slow. He never fixed it."
+            ]
+          },
+          {
+            "type": "lines",
+            "lines": [
+              "The workshop wall clock is visible in the photo, showing 9:49.",
+              "That wall clock is 6 minutes fast."
+            ]
+          }
+        ],
+        "question": "What was the real time when the photo was taken?"
+      },
+      "assets": [],
+      "unlock_order": 1,
+      "requires": null,
+      "hint_available": true
+    },
+    {
+      "id": "cho-b",
+      "case": "Case 1: Cho (Logic)",
+      "title": "Part B",
+      "kind": "puzzle",
+      "narrative_intro": "Cho: \"The spa wing's outer door was locked at 9:30, and only the spa key opens it. The key cabinet has three envelopes, and somebody's idea of a joke was to swap the labels. Every label is wrong.\"",
+      "prompt": {
+        "body": [
+          {
+            "type": "paragraph",
+            "text": "The three envelopes are labelled SPA, WORKSHOP and SPA + WORKSHOP."
+          },
+          {
+            "type": "paragraph",
+            "text": "Each one holds exactly what one of the labels says: the spa key, the workshop key, or both keys."
+          },
+          {
+            "type": "lines",
+            "lines": [
+              "Every label is wrong.",
+              "The envelope labelled SPA + WORKSHOP turned out to hold only the spa key.",
+              "Owen signed out the envelope labelled SPA."
+            ]
+          }
+        ],
+        "question": "Which key was inside the envelope Owen signed out?"
+      },
+      "assets": [],
+      "unlock_order": 2,
+      "requires": "cho-a",
+      "hint_available": true,
+      "handoff": "\"Cho closes the file. Rigsby's found an old phone note from the sister.\""
+    },
+    {
+      "id": "rigsby-a",
+      "case": "Case 2: Rigsby (Ciphers)",
+      "title": "Part A",
+      "kind": "puzzle",
+      "narrative_intro": "Rigsby: \"The sister texted her manager at 9:30, using the old phone-keypad style: tap a key once for its first letter, twice for its second, and so on.\"",
+      "prompt": {
+        "body": [
+          {
+            "type": "paragraph",
+            "text": "Evidence: The radio room is at the top of the main building, an 8-minute walk from the spa. During the storm it's used to talk to the mountain rescue team."
+          },
+          {
+            "type": "mono",
+            "label": "Ingrid's text:",
+            "text": "777-2-3-444-666 / 777-666-666-6"
+          }
+        ],
+        "question": "Where was Ingrid?"
+      },
+      "assets": [
+        {
+          "type": "table",
+          "id": "phone-keypad",
+          "caption": "Phone keypad",
+          "source": "PDF p.3 vector table, checked against render",
+          "header": [
+            "Key",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9"
+          ],
+          "rows": [
+            [
+              "Letters",
+              "ABC",
+              "DEF",
+              "GHI",
+              "JKL",
+              "MNO",
+              "PQRS",
+              "TUV",
+              "WXYZ"
+            ]
+          ],
+          "row_header": true,
+          "orientation": "horizontal"
+        }
+      ],
+      "unlock_order": 1,
+      "requires": null,
+      "hint_available": true
+    },
+    {
+      "id": "rigsby-b",
+      "case": "Case 2: Rigsby (Ciphers)",
+      "title": "Part B",
+      "kind": "puzzle",
+      "narrative_intro": "Rigsby: \"The mountain rescue coordinator sent us a coded message about her. Rescue teams use a grid code. Their square starts with the word RESCUE, then the rest of the alphabet.\"",
+      "prompt": {
+        "body": [
+          {
+            "type": "mono",
+            "text": "45 32 34 34 45 12 41"
+          },
+          {
+            "type": "asset",
+            "id": "rescue-square"
+          },
+          {
+            "type": "paragraph",
+            "text": "The first digit is the row, the second is the column. I and J share a cell."
+          }
+        ],
+        "question": "What does the coordinator's message say?"
+      },
+      "assets": [
+        {
+          "type": "table",
+          "id": "rescue-square",
+          "caption": "RESCUE grid square",
+          "source": "PDF p.3 vector table, checked against render",
+          "header": [
+            "",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5"
+          ],
+          "rows": [
+            [
+              "1",
+              "R",
+              "E",
+              "S",
+              "C",
+              "U"
+            ],
+            [
+              "2",
+              "A",
+              "B",
+              "D",
+              "F",
+              "G"
+            ],
+            [
+              "3",
+              "H",
+              "I/J",
+              "K",
+              "L",
+              "M"
+            ],
+            [
+              "4",
+              "N",
+              "O",
+              "P",
+              "Q",
+              "T"
+            ],
+            [
+              "5",
+              "V",
+              "W",
+              "X",
+              "Y",
+              "Z"
+            ]
+          ]
+        }
+      ],
+      "unlock_order": 2,
+      "requires": "rigsby-a",
+      "hint_available": true,
+      "handoff": "\"Rigsby bags the note. Van Pelt's got the rink coach's notebook. The instructor's next.\""
+    },
+    {
+      "id": "van-pelt-a",
+      "case": "Case 3: Van Pelt (Number systems)",
+      "title": "Part A",
+      "kind": "puzzle",
+      "narrative_intro": "Van Pelt: \"The ski instructor says he was training on the outdoor ice rink, a 9-minute walk from the spa. His coach was there, and she writes her notes in a code based on the rink's rules sign.\"",
+      "prompt": {
+        "body": [
+          {
+            "type": "mono",
+            "label": "Evidence: The coach's note about tonight's session reads:",
+            "text": "2-1-1 · 1-8-1 · 3-4-4 · 1-1-1 · 1-5-1 · 5-7-1 · 2-5-1"
+          },
+          {
+            "type": "paragraph",
+            "text": "The rules sign at the rink gate:"
+          },
+          {
+            "type": "ordered",
+            "items": [
+              "Skates must be laced tight before stepping onto the ice.",
+              "No food or drinks past the red rope.",
+              "Lessons run every evening from seven until ten.",
+              "Please stop at the gate and show your card.",
+              "Report any cracks to the rink office at once."
+            ]
+          }
+        ],
+        "question": "What does the coach's note say about how Mateo skated?"
+      },
+      "assets": [],
+      "unlock_order": 1,
+      "requires": null,
+      "hint_available": true
+    },
+    {
+      "id": "van-pelt-b",
+      "case": "Case 3: Van Pelt (Number systems)",
+      "title": "Part B",
+      "kind": "puzzle",
+      "narrative_intro": "Van Pelt: \"A coach's word is good. A sensor's is better. The lodge's motion panel stores which zones had movement as a single number, and each zone is one bit.\"",
+      "prompt": {
+        "body": [
+          {
+            "type": "asset",
+            "id": "zone-bits"
+          },
+          {
+            "type": "paragraph",
+            "text": "The panel's readings, in decimal:"
+          },
+          {
+            "type": "asset",
+            "id": "readings"
+          }
+        ],
+        "question": "Which zone had movement in all three readings?"
+      },
+      "assets": [
+        {
+          "type": "table",
+          "id": "zone-bits",
+          "caption": "Motion panel zones by bit",
+          "source": "PDF p.5 vector table, checked against render",
+          "header": [
+            "Bit",
+            "7",
+            "6",
+            "5",
+            "4",
+            "3",
+            "2",
+            "1",
+            "0"
+          ],
+          "rows": [
+            [
+              "Zone",
+              "Garage",
+              "Pool",
+              "Ice rink",
+              "Ski shop",
+              "Spa corridor",
+              "Gym",
+              "Kitchen",
+              "Lobby"
+            ]
+          ],
+          "row_header": true,
+          "orientation": "horizontal"
+        },
+        {
+          "type": "table",
+          "id": "readings",
+          "caption": "The panel's readings, in decimal",
+          "source": "PDF p.5 vector table, checked against render",
+          "header": [
+            "Time",
+            "Reading"
+          ],
+          "rows": [
+            [
+              "9:36",
+              "33"
+            ],
+            [
+              "9:42",
+              "36"
+            ],
+            [
+              "9:48",
+              "40"
+            ]
+          ],
+          "row_header": false
+        }
+      ],
+      "unlock_order": 2,
+      "requires": "van-pelt-a",
+      "hint_available": true,
+      "handoff": "\"Van Pelt closes the logs. Lisbon's got the library PC.\""
+    },
+    {
+      "id": "lisbon-a",
+      "case": "Case 4: Lisbon (C programming)",
+      "title": "Part A",
+      "kind": "puzzle",
+      "narrative_intro": "Lisbon: \"The negotiator says she was working on the library PC. The spa is a 5-minute walk from the library each way, so she'd need at least 10 minutes away to do it.\"",
+      "prompt": {
+        "body": [
+          {
+            "type": "paragraph",
+            "text": "Evidence: The library PC records who is logged in every 3 minutes from 9:35 to 9:50."
+          },
+          {
+            "type": "code",
+            "language": "c",
+            "text": "#include <stdio.h>\n#include <string.h>\n\nint main(void) {\n    char *user[] = {\"lena\", \"lena\", \"lena\", \"guest\",\n                    \"lena\", \"lena\"};\n    int mine = 0;\n\n    for (int i = 0; i < 6; i++)\n        if (strcmp(user[i], \"lena\") == 0)\n            mine++;\n\n    printf(\"Login audit done.\\n\");\n    return 0;\n}"
+          }
+        ],
+        "question": "The program only prints \"Login audit done.\" What is the value of mine when it finishes?"
+      },
+      "assets": [],
+      "unlock_order": 1,
+      "requires": null,
+      "hint_available": true
+    },
+    {
+      "id": "lisbon-b",
+      "case": "Case 4: Lisbon (C programming)",
+      "title": "Part B",
+      "kind": "puzzle",
+      "narrative_intro": "Lisbon: \"So someone else was on her PC at 9:44. Her phone's step counter shows she was walking between two times. How long was she gone?\"",
+      "prompt": {
+        "body": [
+          {
+            "type": "code",
+            "language": "c",
+            "text": "#include <stdio.h>\n\nint toMin(int t) {\n    return t / 100 * 60 + t % 100;\n}\n\nint main(void) {\n    int out = 943, back = 947;\n    int gone = toMin(back) - toMin(out);\n\n    printf(\"Steps checked.\\n\");\n    return 0;\n}"
+          }
+        ],
+        "question": "The program only prints \"Steps checked.\" What is the value of gone when it finishes?"
+      },
+      "assets": [],
+      "unlock_order": 2,
+      "requires": "lisbon-a",
+      "hint_available": true,
+      "handoff": "\"Lisbon closes the laptop. Four files are done. Time to name your killer.\""
+    }
+  ],
+  "note_verdicts": "Verdict steps removed at the organizers' request (Oct 13). Handoff lines now follow Part B.",
+  "note_case_headings": "Suspect names removed from case headings at the organizers' request (Oct 13); the PDF headings end with the suspect's name."
+}
