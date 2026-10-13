@@ -753,7 +753,7 @@ const DATA = {
     { id:'lisbon', name:'Lisbon', line:'Runs the team. Signs off on the case.', portrait:'lisbon', away:"Lisbon is holding the scene until her team reports back." }
   ],
   // Case clock. Each case opens when the previous one's time ends (not when it's submitted).
-  timing: { readingMin:IS_FILE ? 5 : 0, sectionMin:{ cho:15, rigsby:15, 'van-pelt':15, lisbon:20 }, closeOnTimeout:true },
+  timing: { readingMin:5, sectionMin:{ cho:15, rigsby:15, 'van-pelt':15, lisbon:20 }, closeOnTimeout:true },
   consultant: { name:'Patrick Jane', role:'Consultant to the CBI. This is you.', portrait:'jane' },
   categories: ['Timeline record','Physical evidence','Technical analysis','Witness statement','Written message','Access log','Cross-reference'],
   evidence: [
@@ -1197,6 +1197,7 @@ const fmtOf = p => p.kind === 'verdict'
   : (FORMATS[p.id] || { kind:'text', label:'Your answer', help:'' });
 
 /* ============ LIVE API CLIENT ============ */
+const refreshOverview = async () => { S.adminOverview = await API.adminOverview().catch(() => S.adminOverview); };
 const API = {
   async request(endpoint, options = {}) {
     const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
@@ -1206,10 +1207,11 @@ const API = {
     try {
       const res = await fetch(endpoint, { ...options, headers });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+      if (!res.ok) throw Object.assign(new Error(data.error || `Request failed (${res.status})`), { status: res.status });
       return data;
     } catch (err) {
       console.warn(`[API REQUEST] ${endpoint}:`, err.message);
+      if (err.status) throw err; // server said no: never fake a receipt
       if (endpoint === '/api/submissions') {
         return { status: 'recorded', recorded_at: new Date().toISOString() };
       }
@@ -1562,17 +1564,37 @@ function crow(p, withDet=false){
 }
 
 /* ============ DETECTIVE PAGE ============ */
+const expiredNote = p => `<div class="feedback fb-locked fb-neutral" role="status"><span class="glyph" aria-hidden="true">⌀</span><div><h3>Time's up</h3><p>${det(detOf(p)).name}'s case closed at ${hhmm(win(detOf(p)).close)} before this part was submitted.</p></div></div>`;
+const desk = (p, n) => `
+  <article class="admin-card" id="card-${p.id}" style="padding:2.2rem;background:var(--charcoal);border:1px solid var(--line);margin-bottom:2rem;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.2rem;">
+      <div>
+        <span class="mono muted">SECTION 0${n} // ${esc(p.case)}</span>
+        <h2 class="display" style="font-size:2.4rem;margin:.2rem 0;">${p.title}</h2>
+      </div>
+      <div>${statusChip(pstatus(p))}</div>
+    </div>
+    ${p.narrative_intro ? `<blockquote class="story" style="margin-bottom:1.5rem;">${esc(p.narrative_intro)}</blockquote>` : ''}
+    <div class="prompt" style="margin-bottom:1.5rem;">${promptHTML(p)}</div>
+    <h3 class="q-label mono muted" style="margin-bottom:.4rem;">Question</h3>
+    <p class="question" style="font-size:1.25rem;font-weight:600;margin-bottom:1.5rem;">${esc(p.prompt.question)}</p>
+    ${S.subs[p.id] ? receipt(p, S.subs[p.id]) : pstatus(p) === 'expired' ? expiredNote(p) : answerForm(p)}
+    ${hintPanel(p, S.subs[p.id])}
+  </article>`;
+const lockedDesk = (p, prev) => `
+  <div class="admin-card" style="padding:2.2rem;border:1px dashed var(--line);background:rgba(255,255,255,0.02);margin-bottom:2rem;">
+    <div class="mono muted">SECTION 02 // ${esc(p.case)}</div>
+    <h3 class="display" style="font-size:2rem;margin:.5rem 0 .6rem;">${p.title} (Locked)</h3>
+    <p class="muted" style="margin:0;">Submit your answer to ${prev.title} above. Part B questions will immediately unlock right here on this screen.</p>
+  </div>`;
 function detectivePage(id){
   const d = det(id); if(!d) return notFound();
   const list = chOf(id);
-  const partA = list[0];
-  const partB = list[1];
   const isUnlocked = detUnlocked(id);
   const w = win(id);
   const nextDet = DATA.detectives[detIndex(id) + 1];
 
-  if(isUnlocked && partA && !S.opened[partA.id]) S.opened[partA.id] = now();
-  if(partA && S.subs[partA.id] && partB && !S.opened[partB.id]) S.opened[partB.id] = now();
+  list.forEach((p, n) => { if(isUnlocked && (!n || S.subs[list[n-1].id]) && !S.opened[p.id]) S.opened[p.id] = now(); });
 
   const bothDone = list.every(p => S.subs[p.id]);
 
@@ -1585,49 +1607,7 @@ function detectivePage(id){
   } else {
     contentHtml = `
       <div style="margin-top:2rem;">
-        <!-- Part A Question Desk -->
-        <article class="admin-card" id="card-${partA.id}" style="padding:2.2rem;background:var(--charcoal);border:1px solid var(--line);margin-bottom:2rem;">
-          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.2rem;">
-            <div>
-              <span class="mono muted">SECTION 01 // ${esc(partA.case)}</span>
-              <h2 class="display" style="font-size:2.4rem;margin:.2rem 0;">${partA.title}</h2>
-            </div>
-            <div>${statusChip(pstatus(partA))}</div>
-          </div>
-          ${partA.narrative_intro ? `<blockquote class="story" style="margin-bottom:1.5rem;">${esc(partA.narrative_intro)}</blockquote>` : ''}
-          <div class="prompt" style="margin-bottom:1.5rem;">${promptHTML(partA)}</div>
-          <h3 class="q-label mono muted" style="margin-bottom:.4rem;">Question</h3>
-          <p class="question" style="font-size:1.25rem;font-weight:600;margin-bottom:1.5rem;">${esc(partA.prompt.question)}</p>
-          ${S.subs[partA.id] ? receipt(partA, S.subs[partA.id], true) : answerForm(partA, true)}
-          ${hintPanel(partA, S.subs[partA.id], true)}
-        </article>
-
-        <!-- Part B Question Desk -->
-        ${partB ? `
-          ${!S.subs[partA.id] ? `
-            <div class="admin-card" style="padding:2.2rem;border:1px dashed var(--line);background:rgba(255,255,255,0.02);margin-bottom:2rem;">
-              <div class="mono muted">SECTION 02 // ${esc(partB.case)}</div>
-              <h3 class="display" style="font-size:2rem;margin:.5rem 0 .6rem;">${partB.title} (Locked)</h3>
-              <p class="muted" style="margin:0;">Submit your answer to ${partA.title} above. Part B questions will immediately unlock right here on this screen.</p>
-            </div>
-          ` : `
-            <article class="admin-card" id="card-${partB.id}" style="padding:2.2rem;background:var(--charcoal);border:1px solid var(--line);margin-bottom:2rem;">
-              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.2rem;">
-                <div>
-                  <span class="mono muted">SECTION 02 // ${esc(partB.case)}</span>
-                  <h2 class="display" style="font-size:2.4rem;margin:.2rem 0;">${partB.title}</h2>
-                </div>
-                <div>${statusChip(pstatus(partB))}</div>
-              </div>
-              ${partB.narrative_intro ? `<blockquote class="story" style="margin-bottom:1.5rem;">${esc(partB.narrative_intro)}</blockquote>` : ''}
-              <div class="prompt" style="margin-bottom:1.5rem;">${promptHTML(partB)}</div>
-              <h3 class="q-label mono muted" style="margin-bottom:.4rem;">Question</h3>
-              <p class="question" style="font-size:1.25rem;font-weight:600;margin-bottom:1.5rem;">${esc(partB.prompt.question)}</p>
-              ${S.subs[partB.id] ? receipt(partB, S.subs[partB.id], true) : answerForm(partB, true)}
-              ${hintPanel(partB, S.subs[partB.id], true)}
-            </article>
-          `}
-        ` : ''}
+        ${list.map((p, n) => n && !S.subs[list[n-1].id] ? lockedDesk(p, list[n-1]) : desk(p, n + 1)).join('')}
 
         <!-- Completion & Sequential Time Lock Banner -->
         ${bothDone ? `
@@ -1663,79 +1643,7 @@ function detectivePage(id){
   `);
 }
 
-function bindDetectivePage(id){
-  const list = chOf(id);
-  list.forEach(p => {
-    if(S.subs[p.id]) return;
-    const f = fmtOf(p);
-    const clearErr = () => {
-      if(S.err === p.id){
-        S.err = null;
-        $(`#ans-${p.id}`)?.removeAttribute('aria-invalid');
-        $(`#ans-err-${p.id}`)?.remove();
-      }
-    };
-
-    if(f.kind === 'time'){
-      const t = S.pendingTime[p.id] = S.pendingTime[p.id] || { h:'', m:'' };
-      $(`#ans-${p.id}`)?.addEventListener('input', e => {
-        t.h = e.target.value;
-        clearErr();
-        if(t.h.length === 2) $(`#ans-${p.id}-m`)?.focus();
-      });
-      $(`#ans-${p.id}-m`)?.addEventListener('input', e => {
-        t.m = e.target.value;
-        clearErr();
-      });
-      document.querySelectorAll(`#ans-${p.id}, #ans-${p.id}-m`).forEach(i => i.addEventListener('keydown', e => {
-        if(e.key === 'Enter'){ e.preventDefault(); $(`#submit-${p.id}`)?.click(); }
-      }));
-    } else if(f.kind === 'choice'){
-      document.querySelectorAll(`input[name="choice-${p.id}"]`).forEach(r => {
-        r.addEventListener('change', e => {
-          S.pending[p.id] = e.target.value;
-          clearErr();
-        });
-      });
-    } else {
-      const ans = $(`#ans-${p.id}:not([readonly])`);
-      ans?.addEventListener('input', e => {
-        S.pending[p.id] = e.target.value;
-        clearErr();
-      });
-      ans?.addEventListener('keydown', e => {
-        if(e.key === 'Enter'){ e.preventDefault(); $(`#submit-${p.id}`)?.click(); }
-      });
-    }
-
-    $(`#submit-${p.id}`)?.addEventListener('click', e => {
-      let value;
-      if(f.kind === 'time'){
-        const t = S.pendingTime[p.id] || { h:'', m:'' };
-        if(!t.h.trim() || !t.m.trim()){
-          S.err = p.id;
-          render();
-          $(`#ans-${p.id}`)?.focus();
-          return;
-        }
-        value = `${t.h}:${t.m}`;
-      } else {
-        value = S.pending[p.id] || '';
-        if(!value.trim()){
-          S.err = p.id;
-          render();
-          $(`#ans-${p.id}`)?.focus();
-          return;
-        }
-      }
-      confirmSubmit(p, value, e.currentTarget);
-    });
-
-    $(`#hint-${p.id}`)?.addEventListener('click', e => {
-      confirmHint(p, e.currentTarget);
-    });
-  });
-}
+const bindDetectivePage = id => chOf(id).forEach(p => bindWorkspace(p.id));
 
 /* ============ CHALLENGE WORKSPACE ============ */
 function block(b, p){
@@ -1768,11 +1676,10 @@ function promptHTML(p){
   const inline = new Set(p.prompt.body.filter(b => b.type==='asset').map(b => b.id));
   return p.prompt.body.map(b => block(b, p)).join('') + p.assets.filter(a => !inline.has(a.id)).map(asset).join('');
 }
-function answerForm(p, isDesk = false){
+function answerForm(p){
   const f = fmtOf(p), err = S.err === p.id, sending = S.sending === p.id, dis = sending ? 'disabled' : '';
-  const inputId = isDesk ? `ans-${p.id}` : 'ans';
-  const submitId = isDesk ? `submit-${p.id}` : 'submit';
-  const desc = isDesk ? `ans-help-${p.id}${err ? ` ans-err-${p.id}` : ''}` : `ans-help${err ? ' ans-err' : ''}`;
+  const inputId = `ans-${p.id}`, submitId = `submit-${p.id}`;
+  const desc = `ans-help-${p.id}${err ? ` ans-err-${p.id}` : ''}`;
   let control;
   if(f.kind === 'time'){
     const t = S.pendingTime[p.id] || { h:'', m:'' };
@@ -1796,21 +1703,18 @@ function answerForm(p, isDesk = false){
     <div class="fmt"><span class="fmt-k mono">Expected format</span><span class="fmt-v">${esc(f.label)}</span></div>
     ${f.kind === 'time' || f.kind === 'choice' ? '<span class="lbl">Your answer</span>' : `<label for="${inputId}">Your answer</label>`}
     ${control}
-    <div class="help" id="${isDesk ? `ans-help-${p.id}` : 'ans-help'}">${esc(f.help)}${f.kind === 'text' ? " Capitals don't matter." : ''} Answers lock when you submit.</div>
-    ${err ? `<div class="err" id="${isDesk ? `ans-err-${p.id}` : 'ans-err'}">${errMsg}</div>` : ''}
+    <div class="help" id="ans-help-${p.id}">${esc(f.help)}${f.kind === 'text' ? " Capitals don't matter." : ''} Answers lock when you submit.</div>
+    ${err ? `<div class="err" id="ans-err-${p.id}">${errMsg}</div>` : ''}
   </div>
   <div class="actions" style="margin-top:1.2rem;"><button class="btn btn-red" id="${submitId}" data-pid="${p.id}" ${dis}>${sending ? '<span class="spinner" aria-hidden="true"></span>Recording' : (p.kind === 'verdict' ? 'Submit verdict' : 'Submit answer')}</button></div>`;
 }
-function receipt(p, sub, isDesk = false){
-  const next = PUZZLES.find(x => x.requires === p.id);
-  const inputId = isDesk ? `ans-${p.id}` : 'ans';
-  const rcptId = isDesk ? `rcpt-${p.id}` : 'rcpt';
+function receipt(p, sub){
+  const inputId = `ans-${p.id}`, rcptId = `rcpt-${p.id}`;
   return `<div class="field"><label for="${inputId}">Your answer</label>
     <input id="${inputId}" class="input locked-in" value="${esc(sub.answer)}" readonly aria-describedby="${rcptId}"></div>
     <div class="receipt" id="${rcptId}" role="status" tabindex="-1"><span class="lock">LOCKED</span>
       <div><strong>${p.kind === 'verdict' ? 'Verdict recorded.' : 'Answer recorded.'}</strong> <span class="mono">${clock(sub.recorded_at)}</span><p>This answer is locked and can't be changed.</p></div></div>
-    ${p.handoff ? `<blockquote class="story handoff"><span class="mono muted">Handoff</span>${esc(p.handoff)}</blockquote>` : ''}
-    ${isDesk ? '' : nextAction(p, next)}`;
+    ${p.handoff ? `<blockquote class="story handoff"><span class="mono muted">Handoff</span>${esc(p.handoff)}</blockquote>` : ''}`;
 }
 function nextAction(p, next){
   const act = h => `<div class="actions">${h}</div>`;
@@ -1823,16 +1727,15 @@ function nextAction(p, next){
   }
   return act(`<a class="btn btn-ghost" href="#/investigation">Back to the investigation</a>`);
 }
-function hintPanel(p, sub, isDesk = false){
+function hintPanel(p, sub){
   if(!p.hint_available) return '';
   const h = S.hints[p.id];
-  const hintId = isDesk ? `hint-${p.id}` : 'hint';
   if(h) return `<div class="hintbox"><h3>Hint requested</h3><p>Logged at <span class="mono">${clock(h.recorded_at)}</span> with a 60-second penalty. In the live event the hint text appears here, sent by the server.</p></div>`;
-  if(sub) return '';
+  if(sub || pstatus(p) === 'expired') return '';
   const at = S.opened[p.id] + HINT_DELAY_MS, ready = now() >= at;
   const when = new Date(at).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
   return `<div class="hintbox"><h3>Hint</h3><p>One hint for this part. ${ready ? '' : `Available from ${when}. `}Using it adds 60 seconds to your time.</p>
-    <button class="btn btn-ghost" id="${hintId}" data-pid="${p.id}" ${ready ? '' : 'disabled'}>Request hint</button></div>`;
+    <button class="btn btn-ghost" id="hint-${p.id}" data-pid="${p.id}" ${ready ? '' : 'disabled'}>Request hint</button></div>`;
 }
 function workspace(id){
   const p = PUZZLES.find(x => x.id === id); if(!p) return notFound();
@@ -1854,7 +1757,7 @@ function workspace(id){
       <div class="prompt">${promptHTML(p)}</div>
       <h2 class="q-label mono muted">Question</h2>
       <p class="question">${esc(p.prompt.question)}</p>
-      ${sub ? receipt(p, sub) : answerForm(p)}
+      ${sub ? receipt(p, sub) + nextAction(p, PUZZLES.find(x => x.requires === p.id)) : answerForm(p)}
       ${hintPanel(p, sub)}`;
   }
   return shell('det-'+d.id, `
@@ -1882,33 +1785,33 @@ function workspace(id){
 }
 function bindWorkspace(id){
   const p = PUZZLES.find(x => x.id === id); if(!p) return;
-  const f = fmtOf(p), submit = () => $('#submit')?.click();
-  const clearErr = () => { if(S.err === id){ S.err = null; $('#ans')?.removeAttribute('aria-invalid'); $('#ans-err')?.remove(); } };
+  const f = fmtOf(p), submit = () => $(`#submit-${id}`)?.click();
+  const clearErr = () => { if(S.err === id){ S.err = null; $(`#ans-${id}`)?.removeAttribute('aria-invalid'); $(`#ans-err-${id}`)?.remove(); } };
   if(f.kind === 'time'){
     const t = S.pendingTime[id] = S.pendingTime[id] || { h:'', m:'' };
-    $('#ans')?.addEventListener('input', e => { t.h = e.target.value; clearErr(); if(t.h.length === 2) $('#ans-m')?.focus(); });
-    $('#ans-m')?.addEventListener('input', e => { t.m = e.target.value; clearErr(); });
-    document.querySelectorAll('.time-in input').forEach(i => i.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); submit(); } }));
+    $(`#ans-${id}`)?.addEventListener('input', e => { t.h = e.target.value; clearErr(); if(t.h.length === 2) $(`#ans-${id}-m`)?.focus(); });
+    $(`#ans-${id}-m`)?.addEventListener('input', e => { t.m = e.target.value; clearErr(); });
+    document.querySelectorAll(`#ans-${id}, #ans-${id}-m`).forEach(i => i.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); submit(); } }));
   } else if(f.kind === 'choice'){
-    document.querySelectorAll('input[name="choice"]').forEach(r => r.addEventListener('change', e => { S.pending[id] = e.target.value; clearErr(); }));
+    document.querySelectorAll(`input[name="choice-${id}"]`).forEach(r => r.addEventListener('change', e => { S.pending[id] = e.target.value; clearErr(); }));
   } else {
-    const ans = $('#ans:not([readonly])');
+    const ans = $(`#ans-${id}:not([readonly])`);
     ans?.addEventListener('input', e => { S.pending[id] = e.target.value; clearErr(); });
     ans?.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); submit(); } });
   }
-  $('#submit')?.addEventListener('click', e => {
+  $(`#submit-${id}`)?.addEventListener('click', e => {
     let value;
     if(f.kind === 'time'){
       const t = S.pendingTime[id];
-      if(!t.h.trim() || !t.m.trim()){ S.err = id; render(); $('#ans')?.focus(); return; }
+      if(!t.h.trim() || !t.m.trim()){ S.err = id; render(); $(`#ans-${id}`)?.focus(); return; }
       value = `${t.h}:${t.m}`;   // composed from the two boxes; digits kept exactly as typed
     } else {
       value = S.pending[id] || '';
-      if(!value.trim()){ S.err = id; render(); $('#ans')?.focus(); return; }
+      if(!value.trim()){ S.err = id; render(); $(`#ans-${id}`)?.focus(); return; }
     }
     confirmSubmit(p, value, e.currentTarget);   // no trimming, no case changes: the server normalizes
   });
-  $('#hint')?.addEventListener('click', e => confirmHint(p, e.currentTarget));
+  $(`#hint-${id}`)?.addEventListener('click', e => confirmHint(p, e.currentTarget));
 }
 function confirmSubmit(p, value, opener){
   const d = det(detOf(p));
@@ -1919,9 +1822,11 @@ function confirmSubmit(p, value, opener){
     <div class="actions"><button class="btn btn-ghost" data-close>Keep editing</button><button class="btn btn-red" id="confirm-sub">Submit answer</button></div></div>`, opener);
   $('#confirm-sub').addEventListener('click', async () => {
     closeDialog(); S.sending = p.id; render();
-    const r = await API.submit({ participant_id:S.participant, puzzle_id:p.id, submitted_answer:value, timestamp:new Date().toISOString() });
+    let r;
+    try { r = await API.submit({ participant_id:S.participant, puzzle_id:p.id, submitted_answer:value, timestamp:new Date().toISOString() }); }
+    catch(err){ S.sending = null; render(); alert('Answer not recorded: ' + err.message); return; }
     S.sending = null; S.subs[p.id] = { answer:value, recorded_at:r.recorded_at }; delete S.pending[p.id]; delete S.pendingTime[p.id];
-    render(); $('#rcpt')?.focus();
+    render(); $(`#rcpt-${p.id}`)?.focus();
   });
 }
 function confirmHint(p, opener){
@@ -1931,8 +1836,9 @@ function confirmHint(p, opener){
     <div class="actions"><button class="btn btn-ghost" data-close>Not yet</button><button class="btn btn-red" id="confirm-hint">Use hint</button></div></div>`, opener);
   $('#confirm-hint').addEventListener('click', async () => {
     closeDialog();
-    const r = await API.requestHint({ participant_id:S.participant, puzzle_id:p.id, timestamp:new Date().toISOString() });
-    S.hints[p.id] = r; render();
+    try { S.hints[p.id] = await API.requestHint({ participant_id:S.participant, puzzle_id:p.id, timestamp:new Date().toISOString() }); }
+    catch(err){ alert('Hint not granted: ' + err.message); }
+    render();
   });
 }
 
@@ -2125,7 +2031,9 @@ function renderSummary(){
       <div class="actions"><button class="btn btn-ghost" data-close>Go back</button><button class="btn btn-red" id="confirm">Submit accusation</button></div></div>`, e.currentTarget);
     $('#confirm').addEventListener('click', async () => {
       closeDialog();
-      const r = await API.accuse({ participant_id:S.participant, suspect_id:S.pick, timestamp:new Date().toISOString() });
+      let r;
+      try { r = await API.accuse({ participant_id:S.participant, suspect_id:S.pick, timestamp:new Date().toISOString() }); }
+      catch(err){ alert('Accusation not recorded: ' + err.message); return; }
       S.accusation = { suspect:S.pick, recorded_at:r.recorded_at };
       location.hash = '#/results';
     });
@@ -2217,8 +2125,6 @@ function bindLogin(){
       localStorage.setItem('tb_token', data.token);
       await initSession();
       if(S.user.role === 'admin'){
-        const ov = await API.adminOverview().catch(() => null);
-        if(ov) S.adminOverview = ov;
         location.hash = '#/admin';
       } else {
         location.hash = '#/';
@@ -2327,7 +2233,7 @@ function renderAdminControl(es, roster = []){
           ${!roster.length ? `<tr><td colspan="4" style="text-align:center;padding:1.5rem;" class="muted">No users in roster.</td></tr>` : ''}
           ${roster.map(u => `<tr>
             <td><strong>${esc(u.register_number)}</strong></td>
-            <td><span class="badge ${u.role==='admin'?'badge-active':'badge-active'}">${esc(u.role)}</span></td>
+            <td><span class="badge ${'badge-active'}">${esc(u.role)}</span></td>
             <td>${clock(u.created_at)}</td>
             <td>
               ${u.role !== 'admin' ? `
@@ -2433,8 +2339,7 @@ function bindAdmin(){
       S.eventStarted = true;
       S.serverStartTime = new Date(res.server_start_time).getTime();
       S.t0 = S.serverStartTime;
-      const ov = await API.adminOverview().catch(() => null);
-      if(ov) S.adminOverview = ov;
+      await refreshOverview();
       render();
     } catch(err) {
       alert('Error starting timer: ' + err.message);
@@ -2452,8 +2357,7 @@ function bindAdmin(){
       await API.adminAddUser(val, 'participant');
       input.value = '';
       alert(`Participant ${val} added to roster successfully.`);
-      const ov = await API.adminOverview().catch(() => null);
-      if(ov) S.adminOverview = ov;
+      await refreshOverview();
       render();
     } catch(err) {
       alert('Error adding participant: ' + err.message);
@@ -2469,8 +2373,7 @@ function bindAdmin(){
       await API.adminAddUser(val, 'admin');
       input.value = '';
       alert(`Administrator ${val} added successfully.`);
-      const ov = await API.adminOverview().catch(() => null);
-      if(ov) S.adminOverview = ov;
+      await refreshOverview();
       render();
     } catch(err) {
       alert('Error adding admin: ' + err.message);
@@ -2485,8 +2388,7 @@ function bindAdmin(){
       e.target.textContent = 'REMOVING...';
       try {
         await API.adminRemoveUser(reg);
-        const ov = await API.adminOverview().catch(() => null);
-        if(ov) S.adminOverview = ov;
+        await refreshOverview();
         render();
       } catch(err) {
         alert('Error removing student: ' + err.message);
@@ -2504,8 +2406,7 @@ function bindAdmin(){
       e.target.textContent = 'ACCEPTING...';
       try {
         await API.adminUnblock(reqId, reg);
-        const ov = await API.adminOverview().catch(() => null);
-        if(ov) S.adminOverview = ov;
+        await refreshOverview();
         render();
       } catch(err) {
         alert('Error unblocking: ' + err.message);
@@ -2517,18 +2418,7 @@ function bindAdmin(){
 }
 
 /* ============ FULLSCREEN & TIMER SYNC ============ */
-function requestAppFullscreen(){
-  const el = document.documentElement;
-  const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-  if(fn){
-    try {
-      const p = fn.call(el);
-      if(p && p.catch) p.catch(() => {});
-    } catch {
-      // Ignore gesture errors
-    }
-  }
-}
+const requestAppFullscreen = () => document.documentElement.requestFullscreen?.().catch(() => {});
 
 document.addEventListener('click', () => {
   if(S.user?.role === 'participant' && S.eventStarted && !S.isBlocked && !document.fullscreenElement){
@@ -2581,7 +2471,6 @@ document.addEventListener('visibilitychange', () => {
 $('#fs-start-btn')?.addEventListener('click', () => {
   const modal = $('#fs-entry');
   if(modal) modal.hidden = true;
-  requestAppFullscreen();
 });
 
 $('#fs-reenter-btn')?.addEventListener('click', () => {
@@ -2599,7 +2488,6 @@ function handleTimerStarted(serverStartTimeStr){
   if(S.user?.role === 'participant'){
     const modal = $('#fs-entry');
     if(modal) modal.hidden = false;
-    requestAppFullscreen();
   }
   render();
 }
@@ -2645,12 +2533,14 @@ async function initSession(){
       if(data.subs){
         Object.assign(S.subs, data.subs);
       }
+      if(data.hints){
+        Object.assign(S.hints, data.hints);
+      }
       if(data.accusation){
         S.accusation = data.accusation;
       }
       if(data.role === 'admin'){
-        const ov = await API.adminOverview().catch(() => null);
-        if(ov) S.adminOverview = ov;
+        await refreshOverview();
       } else if(data.event_state && data.event_state.is_started){
         S.eventStarted = true;
         S.serverStartTime = new Date(data.event_state.server_start_time).getTime();
@@ -2684,7 +2574,7 @@ function initRealtime(){
             S.serverStartTime = new Date(ov.event_state.server_start_time).getTime();
             S.t0 = S.serverStartTime;
           }
-          if(location.hash.startsWith('#/admin')) render();
+          if(location.hash.startsWith('#/admin') && !document.activeElement?.matches('#app input, #app textarea')) render();
         }
       } else if(S.user.role === 'participant'){
         const sess = await API.getSession();
@@ -2700,7 +2590,7 @@ function initRealtime(){
         }
       }
     } catch (err) {
-      void err;
+      if(err.status === 401){ localStorage.removeItem('tb_token'); location.reload(); }
     }
   }, 3000);
 }
@@ -2734,11 +2624,6 @@ function render(){
     app.dataset.route = '/admin';
     bindAdmin();
     document.title = 'TECH BLITZ | Admin Console';
-    if(!S.adminOverview){
-      API.adminOverview().then(ov => {
-        if(ov){ S.adminOverview = ov; render(); }
-      }).catch(() => {});
-    }
     lastPhase = phaseKey();
     return;
   }

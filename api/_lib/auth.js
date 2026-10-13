@@ -2,7 +2,8 @@
 // Cryptographic JWT Signing & Role Verification (Zero-dependency via native node:crypto)
 import crypto from 'node:crypto';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'tech-blitz-secret-key-32-chars-minimum-fallback';
+if (process.env.VERCEL && !process.env.JWT_SECRET) throw new Error('JWT_SECRET must be set in production');
+const JWT_SECRET = process.env.JWT_SECRET || 'tech-blitz-secret-key-32-chars-minimum-fallback'; // dev/test only
 
 function base64UrlEncode(str) {
   return Buffer.from(str)

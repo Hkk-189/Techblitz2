@@ -39,5 +39,6 @@ export const localStore = {
     }]
   ]),
   submissions: [],
+  hints: [],
   fullscreen_requests: []
 };

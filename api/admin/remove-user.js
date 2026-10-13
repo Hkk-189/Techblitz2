@@ -4,7 +4,7 @@ import { supabase, localStore } from '../_lib/db.js';
 import { requireAdmin } from '../_lib/auth.js';
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST' && req.method !== 'DELETE') {
+  if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -13,54 +13,33 @@ export default async function handler(req, res) {
     return res.status(auth.status).json({ error: auth.error });
   }
 
-  const { register_number } = req.body || {};
-  const regNum = String(register_number || '').trim();
+  const regNum = String(req.body?.register_number || '').trim();
 
   if (!regNum) {
     return res.status(400).json({ error: 'Register number is required' });
   }
 
-  if (regNum.toLowerCase() === 'gowtham123') {
-    return res.status(400).json({ error: 'Cannot remove primary administrator account' });
+  if (regNum.toLowerCase() === 'gowtham123' || regNum.toLowerCase() === auth.user.register_number.toLowerCase()) {
+    return res.status(400).json({ error: 'Cannot remove primary administrator or your own account' });
   }
 
   if (supabase) {
-    // 1. Remove participant records
-    await supabase.from('submissions').delete().eq('register_number', regNum);
-    await supabase.from('fullscreen_requests').delete().eq('register_number', regNum);
-    await supabase.from('participant_sessions').delete().eq('register_number', regNum);
-    
-    // 2. Remove user from users table
-    const { error: delError } = await supabase
-      .from('users')
-      .delete()
-      .eq('register_number', regNum);
-
-    if (delError) {
-      return res.status(500).json({ error: 'Database delete failed: ' + delError.message });
+    // submissions, hints, fullscreen_requests, participant_sessions go via ON DELETE CASCADE
+    // ilike: match regardless of case; role filter keeps other admins safe
+    const { error } = await supabase.from('users').delete().ilike('register_number', regNum.replace(/[\\%_]/g, '\\$&')).eq('role', 'participant');
+    if (error) {
+      return res.status(500).json({ error: 'Database delete failed: ' + error.message });
     }
   } else {
-    // Local store cleanup
-    for (const [k, u] of localStore.users.entries()) {
-      if (u.register_number.toLowerCase() === regNum.toLowerCase()) {
-        localStore.users.delete(k);
-      }
+    const key = regNum.toLowerCase();
+    const hit = r => r.register_number.toLowerCase() === key && r.role !== 'admin';
+    for (const m of [localStore.users, localStore.participant_sessions]) {
+      for (const [k, r] of m.entries()) if (hit(r)) m.delete(k);
     }
-    for (const [k, p] of localStore.participant_sessions.entries()) {
-      if (p.register_number.toLowerCase() === regNum.toLowerCase()) {
-        localStore.participant_sessions.delete(k);
-      }
-    }
-    localStore.fullscreen_requests = localStore.fullscreen_requests.filter(
-      r => r.register_number.toLowerCase() !== regNum.toLowerCase()
-    );
-    localStore.submissions = localStore.submissions.filter(
-      s => s.register_number.toLowerCase() !== regNum.toLowerCase()
-    );
+    localStore.fullscreen_requests = localStore.fullscreen_requests.filter(r => !hit(r));
+    localStore.submissions = localStore.submissions.filter(r => !hit(r));
+    localStore.hints = localStore.hints.filter(r => !hit(r));
   }
 
-  return res.status(200).json({
-    success: true,
-    removed: regNum
-  });
+  return res.status(200).json({ success: true, removed: regNum });
 }

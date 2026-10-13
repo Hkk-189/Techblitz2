@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
+import { localStore } from '../api/_lib/db.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 8089;
@@ -150,6 +151,16 @@ try {
   console.log('✓ Admin successfully started timer at:', startTimer.data.server_start_time);
 
   console.log('\n--- 5. Submission & Score Evaluation ---');
+  // Server enforces the 5-minute reading period: Cho's window is closed right after start
+  const early = await req('/api/submissions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${partToken}` },
+    body: JSON.stringify({ puzzle_id: 'cho-a', submitted_answer: '9:43' })
+  });
+  assert.equal(early.status, 403);
+  console.log('✓ Submission during reading time rejected');
+  // Fast-forward past reading time (same-process local store)
+  localStore.event_state.server_start_time = new Date(Date.now() - 6 * 60000).toISOString();
   // Submit correct answer to cho-a
   const sub = await req('/api/submissions', {
     method: 'POST',

@@ -69,6 +69,15 @@ CREATE TABLE IF NOT EXISTS fullscreen_requests (
 
 CREATE INDEX IF NOT EXISTS idx_fs_requests_pending ON fullscreen_requests(status) WHERE status = 'pending';
 
+-- 6. Hint Log (one hint per participant per puzzle)
+CREATE TABLE IF NOT EXISTS hints (
+  id BIGSERIAL PRIMARY KEY,
+  register_number TEXT NOT NULL REFERENCES users(register_number) ON DELETE CASCADE,
+  puzzle_id TEXT NOT NULL,
+  recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT uq_user_hint UNIQUE (register_number, puzzle_id)
+);
+
 -- Enable Realtime Replication for tables that need client sync
 DO $$
 BEGIN

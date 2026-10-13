@@ -41,12 +41,14 @@ export default async function handler(req, res) {
         .eq('register_number', user.register_number)
         .single();
 
-      if (pSession) {
-        isBlocked = pSession.is_blocked;
-        score = pSession.score;
-        if (pSession.accusation_suspect) {
-          accusation = { suspect: pSession.accusation_suspect };
-        }
+      if (!pSession) {
+        // user was removed by an admin; the JWT outlives the row
+        return res.status(401).json({ valid: false, error: 'Account no longer registered' });
+      }
+      isBlocked = pSession.is_blocked;
+      score = pSession.score;
+      if (pSession.accusation_suspect) {
+        accusation = { suspect: pSession.accusation_suspect };
       }
 
       // Fetch user's recorded submissions (receipts only, no answers)
@@ -60,23 +62,33 @@ export default async function handler(req, res) {
           subs[s.puzzle_id] = { recorded_at: s.recorded_at };
         });
       }
+
+      const { data: userHints } = await supabase
+        .from('hints')
+        .select('puzzle_id, recorded_at')
+        .eq('register_number', user.register_number);
+      (userHints || []).forEach(h => { hints[h.puzzle_id] = { recorded_at: h.recorded_at }; });
     }
   } else {
     eventState = localStore.event_state;
     if (user.role === 'participant') {
       const pSession = localStore.participant_sessions.get(user.register_number);
-      if (pSession) {
-        isBlocked = pSession.is_blocked;
-        score = pSession.score;
-        if (pSession.accusation_suspect) {
-          accusation = { suspect: pSession.accusation_suspect };
-        }
+      if (!pSession) {
+        return res.status(401).json({ valid: false, error: 'Account no longer registered' });
+      }
+      isBlocked = pSession.is_blocked;
+      score = pSession.score;
+      if (pSession.accusation_suspect) {
+        accusation = { suspect: pSession.accusation_suspect };
       }
       localStore.submissions
         .filter(s => s.register_number === user.register_number)
         .forEach(s => {
           subs[s.puzzle_id] = { recorded_at: s.recorded_at };
         });
+      localStore.hints
+        .filter(h => h.register_number === user.register_number)
+        .forEach(h => { hints[h.puzzle_id] = { recorded_at: h.recorded_at }; });
     }
   }
 

@@ -1,6 +1,10 @@
 // qa/test-api.mjs - Quick test for API endpoints
 import syncHandler from '../api/clock/sync.js';
 import loginHandler from '../api/auth/login.js';
+import submitHandler from '../api/submissions.js';
+import hintHandler from '../api/hints.js';
+import removeHandler from '../api/admin/remove-user.js';
+import { localStore } from '../api/_lib/db.js';
 import { checkAnswer, getHint, checkAccusation } from '../api/_lib/answers.js';
 import { signToken, verifyToken } from '../api/_lib/auth.js';
 
@@ -46,5 +50,23 @@ await loginHandler({ method: 'POST', body: { register_number: 'Gowtham123' } }, 
 console.assert(loginRes.data.role === 'admin', 'Gowtham123 must receive admin role');
 console.assert(typeof loginRes.data.token === 'string', 'Login must issue token');
 console.log('Login handler returned:', loginRes.data.role, loginRes.data.register_number);
+
+// Submission rules (local store): event gate, Part A -> B order, dedup, one hint per puzzle
+const call = async (h, body, tok) => { const r = mockRes(); await h({ method: 'POST', body, headers: { authorization: 'Bearer ' + tok } }, r); return r; };
+const stu = signToken({ register_number: '21BCE1001', role: 'participant' });
+console.assert((await call(submitHandler, { puzzle_id: 'cho-a', submitted_answer: '9:43' }, stu)).statusCode === 403, 'submit before start must 403');
+localStore.event_state = { is_started: true, server_start_time: new Date(Date.now() - 6 * 60000).toISOString() }; // reading over, Cho open
+console.assert((await call(submitHandler, { puzzle_id: 'cho-b', submitted_answer: 'x' }, stu)).statusCode === 403, 'Part B before Part A must 403');
+console.assert((await call(submitHandler, { puzzle_id: 'rigsby-a', submitted_answer: 'x' }, stu)).statusCode === 403, 'later section must 403');
+const first = await call(submitHandler, { puzzle_id: 'cho-a', submitted_answer: '9:43' }, stu);
+const again = await call(submitHandler, { puzzle_id: 'cho-a', submitted_answer: '9:43' }, stu);
+console.assert(first.statusCode === 200 && again.data.recorded_at === first.data.recorded_at, 'duplicate returns original receipt');
+console.assert(localStore.participant_sessions.get('21BCE1001').score === 1, 'duplicate must not double-score');
+await call(hintHandler, { puzzle_id: 'cho-b' }, stu); await call(hintHandler, { puzzle_id: 'cho-b' }, stu);
+console.assert(localStore.participant_sessions.get('21BCE1001').penalty_seconds === 60, 'one hint per puzzle');
+const adm = signToken({ register_number: 'Gowtham123', role: 'admin' });
+console.assert((await call(removeHandler, { register_number: 'gowtham123' }, adm)).statusCode === 400, 'primary admin protected');
+console.assert((await call(removeHandler, { register_number: '21bce1001' }, adm)).statusCode === 200 && !localStore.users.has('21bce1001'), 'remove is case-insensitive');
+console.log('Submission rule checks passed.');
 
 console.log('ALL MILESTONE 1 BACKEND TESTS PASSED SUCCESSFULLY!');
