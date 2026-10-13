@@ -17,7 +17,7 @@ export default async function handler(req, res) {
 
   // 1. Check for Default Admin: "Gowtham123"
   const isDefaultAdmin = regNum.toLowerCase() === 'gowtham123';
-  const canonicalRegNum = isDefaultAdmin ? 'Gowtham123' : regNum;
+  let canonicalRegNum = isDefaultAdmin ? 'Gowtham123' : regNum;
 
   let role = isDefaultAdmin ? 'admin' : 'participant';
 
@@ -26,8 +26,8 @@ export default async function handler(req, res) {
     const { data: user, error } = await supabase
       .from('users')
       .select('register_number, role')
-      .eq('register_number', canonicalRegNum)
-      .single();
+      .ilike('register_number', canonicalRegNum.replace(/[\\%_]/g, '\\$&')) // case-insensitive, no wildcards
+      .maybeSingle();
 
     if (error || !user) {
       if (isDefaultAdmin) {
@@ -44,6 +44,7 @@ export default async function handler(req, res) {
       }
     } else {
       role = user.role;
+      canonicalRegNum = user.register_number; // use the stored spelling
     }
 
     if (role === 'participant') {
@@ -74,6 +75,7 @@ export default async function handler(req, res) {
     }
     if (lookup) {
       role = lookup.role;
+      canonicalRegNum = lookup.register_number;
     } else if (isDefaultAdmin) {
       localStore.users.set('gowtham123', { register_number: 'Gowtham123', role: 'admin' });
       role = 'admin';

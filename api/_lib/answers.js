@@ -51,3 +51,7 @@ export function checkAccusation(suspectId) {
   const normalized = String(suspectId).trim().toLowerCase();
   return normalized === 'sam' || normalized === 'dr. sam whitley';
 }
+
+export function getCulprit() {
+  return getAnswers().accusation.correct;
+}

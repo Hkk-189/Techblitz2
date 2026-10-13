@@ -1263,6 +1263,9 @@ const API = {
   reportFullscreenExit() {
     return this.request('/api/fullscreen/exit', { method: 'POST' });
   },
+  adminCulprit() {
+    return this.request('/api/admin/culprit');
+  },
   adminStartTimer() {
     return this.request('/api/admin/start-timer', { method: 'POST' });
   },
@@ -2175,7 +2178,7 @@ function adminView(){
     </nav>
 
     ${activeTab === 'control' ? renderAdminControl(es, ov.roster) : ''}
-    ${activeTab === 'scores' ? renderAdminScores(ov.leaderboard) : ''}
+    ${activeTab === 'scores' ? renderAdminScores(ov.leaderboard, es) : ''}
     ${activeTab === 'requests' ? renderAdminRequests(ov.requests) : ''}
   </main>`;
 }
@@ -2196,6 +2199,7 @@ function renderAdminControl(es, roster = []){
         <button class="btn btn-red" id="admin-start-timer-btn" ${isStarted ? 'disabled' : ''} style="width:100%;justify-content:center;">
           ${isStarted ? 'TIMER CURRENTLY ACTIVE' : 'START TIMER FOR ALL PARTICIPANTS'}
         </button>
+        ${isStarted ? `<button class="btn btn-ghost" id="admin-restart-timer-btn" style="width:100%;justify-content:center;margin-top:.8rem;color:var(--red);border-color:var(--red);">RESET &amp; RESTART TIMER</button>` : ''}
       </div>
     </div>
 
@@ -2247,7 +2251,9 @@ function renderAdminControl(es, roster = []){
   </div>`;
 }
 
-function renderAdminScores(leaderboard = []){
+const eventEnd = es => es?.server_start_time ? new Date(es.server_start_time).getTime() + (es.total_duration_ms || 4200000) : null;
+function renderAdminScores(leaderboard = [], es = {}){
+  const end = eventEnd(es), ended = end != null && now() >= end;
   return `
   <div class="admin-card">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
@@ -2255,7 +2261,16 @@ function renderAdminScores(leaderboard = []){
         <div class="mono muted">LIVE PARTICIPANT RANKINGS</div>
         <h2 class="display" style="font-size:2.4rem;">LEADERBOARD</h2>
       </div>
-      <div class="mono muted" style="font-size:.85rem;">Updates immediately on correct puzzle submissions</div>
+      <div style="text-align:right;">
+        <button class="btn btn-red" id="admin-export-json-btn" ${ended ? '' : 'disabled'}>DOWNLOAD LEADERBOARD (JSON)</button>
+        <div class="mono muted" style="font-size:.8rem;margin-top:.4rem;">${ended ? 'Final countdown ended. Results are final.' : end ? `Available when the final countdown ends in ${until(end)}` : 'Available after the timer is started and the final countdown ends'}</div>
+      </div>
+    </div>
+    <div id="culprit-box" style="margin:1rem 0;">
+      ${S.culprit
+        ? (() => { const sid = DATA.suspects.find(x => x.name === S.culprit)?.id, hit = leaderboard.filter(p => p.accusation_suspect === sid).length;
+            return `<div class="admin-card" style="border:1px solid var(--green);background:rgba(59,109,79,.12);margin:0;"><div class="mono" style="color:var(--green-ink);">THE CULPRIT</div><h3 class="display" style="font-size:2.4rem;margin:.2rem 0;">${esc(S.culprit)}</h3><div class="mono muted">${hit} of ${leaderboard.length} participants accused correctly</div></div>`; })()
+        : `<button class="btn btn-ghost" id="admin-reveal-culprit-btn">REVEAL THE CULPRIT</button>`}
     </div>
     <div style="overflow-x:auto;">
       <table class="admin-table">
@@ -2330,10 +2345,32 @@ function bindAdmin(){
     render();
   });
 
-  $('#admin-start-timer-btn')?.addEventListener('click', async e => {
-    if(!confirm('Start case timer for all participants now? This will simultaneously initiate the countdown and enforce fullscreen.')) return;
+  $('#admin-reveal-culprit-btn')?.addEventListener('click', async () => {
+    if(!confirm('Reveal the culprit on this screen? Make sure it is not being projected to participants.')) return;
+    try { S.culprit = (await API.adminCulprit()).culprit; render(); }
+    catch(err){ alert('Could not reveal culprit: ' + err.message); }
+  });
+
+  $('#admin-export-json-btn')?.addEventListener('click', async () => {
+    await refreshOverview();
+    const { leaderboard = [], event_state: es = {} } = S.adminOverview || {};
+    const blob = new Blob([JSON.stringify({
+      exported_at: new Date().toISOString(),
+      event_start: es.server_start_time,
+      event_end: new Date(eventEnd(es)).toISOString(),
+      leaderboard: leaderboard.map((p, i) => ({ rank: i + 1, ...p }))
+    }, null, 2)], { type: 'application/json' });
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'techblitz-leaderboard.json' });
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  ['start', 'restart'].forEach(kind => $(`#admin-${kind}-timer-btn`)?.addEventListener('click', async e => {
+    if(!confirm(kind === 'start'
+      ? 'Start case timer for all participants now? This will simultaneously initiate the countdown and enforce fullscreen.'
+      : 'Restart the case timer for ALL participants from zero, right now? Answers already submitted are kept.')) return;
     e.target.disabled = true;
-    e.target.textContent = 'STARTING...';
+    e.target.textContent = kind === 'start' ? 'STARTING...' : 'RESTARTING...';
     try {
       const res = await API.adminStartTimer();
       S.eventStarted = true;
@@ -2344,9 +2381,9 @@ function bindAdmin(){
     } catch(err) {
       alert('Error starting timer: ' + err.message);
       e.target.disabled = false;
-      e.target.textContent = 'START TIMER FOR ALL PARTICIPANTS';
+      e.target.textContent = kind === 'start' ? 'START TIMER FOR ALL PARTICIPANTS' : 'RESET & RESTART TIMER';
     }
-  });
+  }));
 
   $('#add-participant-form')?.addEventListener('submit', async e => {
     e.preventDefault();
@@ -2481,11 +2518,13 @@ $('#fs-reenter-btn')?.addEventListener('click', () => {
 });
 
 function handleTimerStarted(serverStartTimeStr){
-  if(S.eventStarted) return;
+  const t = new Date(serverStartTimeStr).getTime();
+  if(S.eventStarted && S.serverStartTime === t) return;
+  if(S.eventStarted) S.opened = {};   // restart: hint delays count from the new start
   S.eventStarted = true;
-  S.serverStartTime = new Date(serverStartTimeStr).getTime();
-  S.t0 = S.serverStartTime;
-  if(S.user?.role === 'participant'){
+  S.serverStartTime = t;
+  S.t0 = t;
+  if(S.user?.role === 'participant' && !document.fullscreenElement){
     const modal = $('#fs-entry');
     if(modal) modal.hidden = false;
   }
@@ -2579,7 +2618,7 @@ function initRealtime(){
       } else if(S.user.role === 'participant'){
         const sess = await API.getSession();
         if(sess){
-          if(sess.event_state?.is_started && !S.eventStarted){
+          if(sess.event_state?.is_started){
             handleTimerStarted(sess.event_state.server_start_time);
           }
           if(sess.is_blocked && !S.isBlocked){

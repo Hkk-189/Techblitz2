@@ -3,6 +3,7 @@ import syncHandler from '../api/clock/sync.js';
 import loginHandler from '../api/auth/login.js';
 import submitHandler from '../api/submissions.js';
 import hintHandler from '../api/hints.js';
+import addUserHandler from '../api/admin/add-user.js';
 import removeHandler from '../api/admin/remove-user.js';
 import { localStore } from '../api/_lib/db.js';
 import { checkAnswer, getHint, checkAccusation } from '../api/_lib/answers.js';
@@ -67,6 +68,11 @@ console.assert(localStore.participant_sessions.get('21BCE1001').penalty_seconds 
 const adm = signToken({ register_number: 'Gowtham123', role: 'admin' });
 console.assert((await call(removeHandler, { register_number: 'gowtham123' }, adm)).statusCode === 400, 'primary admin protected');
 console.assert((await call(removeHandler, { register_number: '21bce1001' }, adm)).statusCode === 200 && !localStore.users.has('21bce1001'), 'remove is case-insensitive');
+// Authorize a new participant, then they can log in (any letter case)
+console.assert((await call(addUserHandler, { register_number: '22bce2002' }, stu)).statusCode === 403, 'participant cannot add users');
+console.assert((await call(addUserHandler, { register_number: '22bce2002' }, adm)).data.user.register_number === '22BCE2002', 'participant stored upper-case');
+const newLogin = await call(loginHandler, { register_number: '22bce2002' });
+console.assert(newLogin.data.role === 'participant' && newLogin.data.register_number === '22BCE2002', 'added participant can log in');
 console.log('Submission rule checks passed.');
 
 console.log('ALL MILESTONE 1 BACKEND TESTS PASSED SUCCESSFULLY!');

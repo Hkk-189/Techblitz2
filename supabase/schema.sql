@@ -98,5 +98,14 @@ BEGIN
   END;
 END $$;
 
+-- Lock tables to the server: RLS on with no policies denies the public anon key.
+-- The API uses the service-role key, which bypasses RLS.
+ALTER TABLE event_state         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE participant_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE submissions         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fullscreen_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE hints               ENABLE ROW LEVEL SECURITY;
+
 -- Force PostgREST to reload its schema cache immediately
 NOTIFY pgrst, 'reload schema';
